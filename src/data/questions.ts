@@ -294,8 +294,8 @@ export const round4Questions: Question[] = [dsaPool[0], dsaPool[1]];
 export const locationHints = [
   "📍 [HINT FOR ROUND 2 LOCATION] — I have no RAM and no CPU, yet every coder and non-coder visits me to refuel. I'm located at the patty of the burger you are in.",
   "📍 [HINT FOR ROUND 3 LOCATION] — I'm the Jacket holding a badge 11001101 in decimal. Inside me, find the machine that stops humans from thermal throttling.",
-  "📍 [HINT FOR ROUND 4 LOCATION] — I'm the only Windows you don't need to install, and I never crash.HTTP says me 404 means Not Found,But my junior 304: Found",
-  "📍 [HINT FOR FINAL LOCATION] — Write a riddle or clue for the last checkpoint.",
+  "📍 [HINT FOR ROUND 4 LOCATION] — I'm the only Windows you don't need to install, and I never crash.But HTTP says me 404 means Not Found,But my junior 304: Found",
+  `📍 [HINT FOR FINAL LOCATION] — Heyy I'm "h" , but  computer coded .That's me.You are welcome, find the flat surface in me that holds every laptop.`,
 ];
 
 // ⚠️ CHANGE THESE before the event! These must match the QR codes you print.
