@@ -292,9 +292,9 @@ export const round4Questions: Question[] = [dsaPool[0], dsaPool[1]];
 // ⚠️ UPDATE THESE before the event! Write location hints specific to YOUR campus/venue.
 // Each hint leads players to the next QR code location.
 export const locationHints = [
-  "📍 [HINT FOR ROUND 2 LOCATION] — Write a riddle or clue leading to where you'll place QR code #2.",
-  "📍 [HINT FOR ROUND 3 LOCATION] — Write a riddle or clue leading to where you'll place QR code #3.",
-  "📍 [HINT FOR ROUND 4 LOCATION] — Write a riddle or clue leading to where you'll place QR code #4.",
+  "📍 [HINT FOR ROUND 2 LOCATION] — I have no RAM and no CPU, yet every coder and non-coder visits me to refuel. I'm located at the patty of the burger you are in.",
+  "📍 [HINT FOR ROUND 3 LOCATION] — I'm the Jacket holding a badge 11001101 in decimal. Inside me, find the machine that stops humans from thermal throttling.",
+  "📍 [HINT FOR ROUND 4 LOCATION] — I'm the only Windows you don't need to install, and I never crash.HTTP says me 404 means Not Found,But my junior 304: Found",
   "📍 [HINT FOR FINAL LOCATION] — Write a riddle or clue for the last checkpoint.",
 ];
 
