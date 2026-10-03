@@ -79,7 +79,7 @@ BEGIN
 
     -- Fetch hint if in hint stage
     IF v_part.stage = 'hint' THEN
-        SELECT * INTO v_hint FROM hints WHERE round = v_part.current_round - 1;
+        SELECT * INTO v_hint FROM hints WHERE round = v_part.current_round;
     END IF;
     
     -- We'll recalculate the score if needed, but the score in table is the source of truth.

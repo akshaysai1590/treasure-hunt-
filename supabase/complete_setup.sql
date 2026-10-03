@@ -164,7 +164,7 @@ BEGIN
     END IF;
 
     IF v_part.stage = 'hint' THEN
-        SELECT * INTO v_hint FROM hints WHERE round = v_part.current_round - 1;
+        SELECT * INTO v_hint FROM hints WHERE round = v_part.current_round;
     END IF;
 
     RETURN jsonb_build_object(
