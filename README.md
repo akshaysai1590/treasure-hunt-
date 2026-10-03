@@ -1,130 +1,92 @@
-# 🏴‍☠️ Treasure Hunt — Technical Event Game
+# 🏴‍☠️ Treasure Hunt — Technical Event Platform
 
-A mobile-first, QR-based treasure hunt game built for college technical events. Players scan QR codes at physical locations, answer questions across 4 rounds, and compete on a live leaderboard.
+A secure, mobile-first, QR-based treasure hunt game designed for college technical competitions. Players scan physical QR codes at checkpoints, solve timed technical challenges, and compete on a live server-authoritative leaderboard.
 
-**Built with:** React + Vite + TypeScript + Tailwind CSS + shadcn/ui + Supabase
+**Tech Stack:**
+- **Frontend:** React 18 + Vite 5 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend & Database:** Supabase (PostgreSQL with server-side RPC functions & Realtime subscriptions)
+- **Deployment:** Vercel
 
 ---
 
-## 🚀 Setup Instructions
+## ⚡ Quick Start
 
-### 1. Clone & Install
-
+### 1. Installation
 ```sh
-git clone <YOUR_GIT_URL>
-cd treasure-hunt
 npm install
 ```
 
-### 2. Set up Supabase (Database)
-
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Go to **Project Settings → API** and copy your **Project URL** and **anon key**
-3. In your Supabase dashboard, go to **SQL Editor** and run:
-
-```sql
-CREATE TABLE participants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username TEXT NOT NULL,
-  score INTEGER DEFAULT 0,
-  completed BOOLEAN DEFAULT false,
-  completion_time INTEGER
-);
-
--- Enable Row Level Security
-ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
-
--- Allow anonymous read/write (needed for the game)
-CREATE POLICY "Allow all" ON participants FOR ALL USING (true) WITH CHECK (true);
+### 2. Environment Variables
+Create `.env` in the project root (see `.env.example`):
+```env
+VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-4. Create a `.env` file in the project root (copy from `.env.example`):
-
-```
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-### 3. Customize for Your Event
-
-Before the event, update these files:
-
-| What to Change | File | What to Do |
-|----------------|------|------------|
-| **Game entry password** | `src/components/screens/LoginScreen.tsx` | Change `GAME_PASSWORD` constant |
-| **Admin panel password** | `src/pages/Admin.tsx` | Change `ADMIN_PASSWORD` constant |
-| **Location hints/riddles** | `src/data/questions.ts` | Update `locationHints` array with your campus-specific clues |
-| **QR code passwords** | `src/data/questions.ts` | Update `roundPasswords` object |
-| **QR code passwords** | `scripts/generate_qrs.js` | Update passwords (must match questions.ts!) |
-
-### 4. Generate QR Codes
-
-After updating the passwords, generate the QR code images:
-
-```sh
-node scripts/generate_qrs.js
-```
-
-Print the generated QR codes from `public/qrcodes/` and place them at your event locations.
-
-### 5. Run the Game
-
+### 3. Local Development
 ```sh
 npm run dev
 ```
+Open `http://localhost:8080` (or the port specified in terminal).
 
-The game will be available at `http://localhost:5173`. Players access it on their phones.
-
-### 6. Deploy (Optional)
-
-Deploy to Vercel for a public URL players can access:
-
+### 4. Running Checks & Tests
 ```sh
+# Type check
+npx tsc --noEmit
+
+# Linting
+npm run lint
+
+# Unit tests
+npm run test
+
+# Production build
 npm run build
-# Deploy the dist/ folder to Vercel, Netlify, or any static host
-```
-
-A `vercel.json` is already included for SPA routing.
-
----
-
-## 🎮 How It Works
-
-- **Login Screen** — Players enter their username + event password to join
-- **QR Scan** — Players scan a physical QR code to unlock each round
-- **4 Rounds** — Logic & Aptitude → Tech Riddles → Rapid Fire → DSA Challenge
-- **Lifelines** — 4 lives; lose one for wrong answers or switching tabs (anti-cheat!)
-- **Location Hints** — After each round, a riddle leads to the next QR code
-- **Leaderboard** — Live scores synced via Supabase
-- **Admin Panel** — Access at `/admin` to pause game, broadcast messages, adjust scores, and reset
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── components/
-│   ├── screens/       # LoginScreen, QRScanScreen, RoundScreen, WinnerScreen, EliminatedScreen
-│   └── ui/            # shadcn/ui components
-├── context/           # GameContext (state management), SoundContext
-├── data/              # Questions, location hints, passwords, leaderboard
-├── hooks/             # Custom React hooks
-├── lib/               # Supabase client, utilities
-└── pages/             # Index, Admin, NotFound
-scripts/
-├── generate_qrs.js    # QR code image generator
-└── generate_wallpapers.js  # SVG wallpaper generator
 ```
 
 ---
 
-## 📝 Tips for Event Day
+## 🔐 Credentials & Default Access
 
-1. **Test everything** before the event — make sure QR scanning works on student phones
-2. **Use the Admin panel** (`/admin`) to monitor scores, pause the game, and broadcast messages
-3. **Print QR codes clearly** — make them big enough to scan from phone camera
-4. **Set the game password** and share it verbally at the event start
-5. **Keep the admin password** secret — only organizers should have it
+The database is seeded with the following default configuration:
 
-Good luck with your event! 🎉
+| Interface | URL Path | Credential | Value |
+|---|---|---|---|
+| **Player Login** | `/` | Game Password | `player` |
+| **Player Login** | `/` | Username | Unique per player |
+| **Admin Console** | `/admin` | Admin Password | `admin` |
+| **Round 1 QR** | Checkpoint 1 | QR Code | `r1` |
+| **Round 2 QR** | Checkpoint 2 | QR Code | `r2` |
+| **Round 3 QR** | Checkpoint 3 | QR Code | `r3` |
+| **Round 4 QR** | Checkpoint 4 | QR Code | `r4` |
+
+---
+
+## 🎮 Game Architecture & Anti-Cheat
+
+1. **Server-Authoritative Validation:**
+   - Question fetching, answer scoring, and time tracking are enforced via PostgreSQL stored procedures (`submit_answer`, `verify_qr`, `report_timeout`).
+   - Answers and hints are never exposed in client bundles.
+2. **Anti-Cheat Focus Detection:**
+   - Detects when players switch tabs or minimize the browser window.
+   - Triggers server-side lifeline deductions for unauthorized app switching.
+3. **Double-Submit & Race Condition Protection:**
+   - UI locks submissions and uses idempotent submission keys to prevent rapid double-clicks.
+   - Camera scanner implements debounce locks to prevent multiple duplicate scans.
+4. **Realtime God Mode (Admin):**
+   - Live Pause / Resume game for all players via Supabase Realtime channels.
+   - Live Broadcast announcements displayed across all active client screens.
+   - Manual score adjustments and game reset options.
+
+---
+
+## 🚢 Deployment to Vercel
+
+1. Push your repository to GitHub.
+2. Import the repository in [vercel.com/new](https://vercel.com/new).
+3. Set the Environment Variables in Vercel Project Settings:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Deploy!
+
+The application includes `vercel.json` configured for SPA routing (`rewrites: [ { "source": "/(.*)", "destination": "/index.html" } ]`).

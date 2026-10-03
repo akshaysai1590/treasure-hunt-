@@ -13,6 +13,12 @@ interface Participant {
     completion_time: number | null;
 }
 
+interface AdminResponse {
+    success: boolean;
+    error?: string;
+    participants?: Participant[];
+}
+
 const Admin = () => {
     const [password, setPassword] = useState("");
     const [authenticated, setAuthenticated] = useState(false);
@@ -22,57 +28,82 @@ const Admin = () => {
     const [isPaused, setIsPaused] = useState(false);
 
     const checkAuth = async () => {
-        const res = await callRpc<any>("admin_login", { p_password: password });
-        if (res.success) {
-            setAuthenticated(true);
-            fetchParticipants();
-        } else {
-            toast.error("Invalid Password");
+        if (!password.trim()) {
+            toast.error("Please enter a password");
+            return;
+        }
+        try {
+            const res = await callRpc<AdminResponse>("admin_login", { p_password: password });
+            if (res.success) {
+                setAuthenticated(true);
+                fetchParticipants();
+            } else {
+                toast.error(res.error || "Invalid Password");
+            }
+        } catch {
+            toast.error("Authentication failed. Check your network.");
         }
     };
 
     const fetchParticipants = async () => {
         setLoading(true);
-        const res = await callRpc<any>("admin_list_participants", { p_password: password });
-        if (res.success) {
-            setParticipants(res.participants || []);
-        } else {
-            toast.error("Failed to fetch data");
+        try {
+            const res = await callRpc<AdminResponse>("admin_list_participants", { p_password: password });
+            if (res.success) {
+                setParticipants(res.participants || []);
+            } else {
+                toast.error(res.error || "Failed to fetch data");
+            }
+        } catch {
+            toast.error("Error communicating with server.");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     // ============ GAME ACTIONS ============
     const resetGame = async () => {
         if (!confirm("ARE YOU SURE? This will RESET all scores to 0.")) return;
-        const res = await callRpc<any>("admin_reset_game", { p_password: password });
-        if (res.success) {
-            toast.success("Game Reset for Everyone ✅");
-            fetchParticipants();
-        } else {
-            toast.error("Reset failed");
+        try {
+            const res = await callRpc<AdminResponse>("admin_reset_game", { p_password: password });
+            if (res.success) {
+                toast.success("Game Reset for Everyone ✅");
+                fetchParticipants();
+            } else {
+                toast.error(res.error || "Reset failed");
+            }
+        } catch {
+            toast.error("Reset failed due to a network error.");
         }
     };
 
-    const adjustScore = async (id: string, currentScore: number, amount: number) => {
-        const res = await callRpc<any>("admin_adjust_score", { p_password: password, p_user_id: id, p_amount: amount });
-        if (res.success) {
-            toast.success(`Score ${amount > 0 ? '+' : ''}${amount}`);
-            fetchParticipants();
-        } else {
-            toast.error("Score update failed");
+    const adjustScore = async (id: string, _currentScore: number, amount: number) => {
+        try {
+            const res = await callRpc<AdminResponse>("admin_adjust_score", { p_password: password, p_user_id: id, p_amount: amount });
+            if (res.success) {
+                toast.success(`Score ${amount > 0 ? '+' : ''}${amount}`);
+                fetchParticipants();
+            } else {
+                toast.error(res.error || "Score update failed");
+            }
+        } catch {
+            toast.error("Network error while updating score.");
         }
     };
 
     // ============ GOD MODE: PAUSE / BROADCAST ============
     const togglePause = async () => {
         const newStatus = !isPaused;
-        const res = await callRpc<any>("admin_pause_game", { p_password: password, p_paused: newStatus });
-        if (res.success) {
-            setIsPaused(newStatus);
-            toast.info(newStatus ? "GAME PAUSED ⏸️" : "GAME RESUMED ▶️");
-        } else {
-            toast.error("Pause toggle failed!");
+        try {
+            const res = await callRpc<AdminResponse>("admin_pause_game", { p_password: password, p_paused: newStatus });
+            if (res.success) {
+                setIsPaused(newStatus);
+                toast.info(newStatus ? "GAME PAUSED ⏸️" : "GAME RESUMED ▶️");
+            } else {
+                toast.error(res.error || "Pause toggle failed!");
+            }
+        } catch {
+            toast.error("Failed to update game pause state.");
         }
     };
 
@@ -83,18 +114,26 @@ const Admin = () => {
         }
 
         const message = `📢 ${broadcastMsg.trim()}`;
-        const res = await callRpc<any>("admin_broadcast", { p_password: password, p_message: message });
-        
-        if (res.success) {
-            toast.success("📢 Broadcast Sent!");
-            setBroadcastMsg("");
+        try {
+            const res = await callRpc<AdminResponse>("admin_broadcast", { p_password: password, p_message: message });
+            
+            if (res.success) {
+                toast.success("📢 Broadcast Sent!");
+                setBroadcastMsg("");
 
-            // Reset username back after 10s
-            setTimeout(async () => {
-                await callRpc<any>("admin_broadcast", { p_password: password, p_message: null });
-            }, 10000);
-        } else {
-            toast.error("Broadcast failed");
+                // Reset message back after 10s
+                setTimeout(async () => {
+                    try {
+                        await callRpc<AdminResponse>("admin_broadcast", { p_password: password, p_message: null });
+                    } catch {
+                        // ignore background reset error
+                    }
+                }, 10000);
+            } else {
+                toast.error(res.error || "Broadcast failed");
+            }
+        } catch {
+            toast.error("Network error while sending broadcast.");
         }
     };
 

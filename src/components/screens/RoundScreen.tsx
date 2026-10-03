@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { useGame } from "@/context/GameContext";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useGame, GameState } from "@/context/GameContext";
 import GameHeader from "@/components/GameHeader";
 import QuestionCard from "@/components/QuestionCard";
 import Timer from "@/components/Timer";
@@ -10,15 +10,69 @@ import RoundIntroPopup from "@/components/RoundIntroPopup";
 import { callRpc } from "@/lib/api";
 
 const roundTitles = ["Logic & Aptitude", "Tech Riddles", "Rapid Fire", "Final DSA Challenge"];
-const roundTimers = [120, 150, 45, 180];
+
+interface QuestionItem {
+  id: number;
+  question: string;
+  options: string[];
+  points?: number;
+  image?: string;
+}
+
+interface QuestionResponse {
+  success: boolean;
+  question?: QuestionItem;
+  time_limit?: number;
+  error?: string;
+}
+
+interface SubmitResponse {
+  success: boolean;
+  correct?: boolean;
+  score?: number;
+  lifelines?: number;
+  round_complete?: boolean;
+  finished?: boolean;
+  stage?: GameState;
+  error?: string;
+}
+
+interface StateResponse {
+  success: boolean;
+  hint?: string;
+}
+
+interface NextRoundResponse {
+  success: boolean;
+  error?: string;
+}
+
+interface LifelineResponse {
+  success: boolean;
+  lifelines?: number;
+  stage?: GameState;
+}
 
 const RoundScreen = () => {
-  const { currentRound, setCurrentRound, setGameState, setRoundComplete, gameState, addScore, startGlobalTimer, finishGame, lifelines, isPaused } = useGame();
+  const { 
+    currentRound, 
+    setCurrentRound, 
+    setGameState, 
+    setRoundComplete, 
+    gameState, 
+    addScore, 
+    setScore,
+    setLifelines,
+    startGlobalTimer, 
+    finishGame, 
+    lifelines, 
+    isPaused 
+  } = useGame();
   const { playSound } = useSound();
-  const [currentQ, setCurrentQ] = useState<any>(null);
+  const [currentQ, setCurrentQ] = useState<QuestionItem | null>(null);
   const [timeLimit, setTimeLimit] = useState(60);
   const [hintText, setHintText] = useState("");
-  const [qIndex, setQIndex] = useState(0); // local cosmetic tracker
+  const [qIndex, setQIndex] = useState(0);
   const [timerKey, setTimerKey] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
   const [questionAnswered, setQuestionAnswered] = useState(false);
@@ -26,6 +80,7 @@ const RoundScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'correct' | 'wrong' | null>(null);
+  const isSubmittingRef = useRef(false);
 
   // Anti-Cheat: Focus Mode Detection
   useEffect(() => {
@@ -43,9 +98,13 @@ const RoundScreen = () => {
             style: { border: "2px solid red", color: "red", background: "#220000" }
           });
           const token = localStorage.getItem("session_token");
-          callRpc("lose_lifeline", { p_session: token, p_reason: "tab_switch", p_idempotency_key: `tab_${Date.now()}` })
-            .then((res: any) => {
+          callRpc<LifelineResponse>("lose_lifeline", { p_session: token, p_reason: "tab_switch", p_idempotency_key: `tab_${Date.now()}` })
+            .then((res) => {
                if (res.stage === "eliminated") setGameState("eliminated");
+               if (typeof res.lifelines === "number") setLifelines(res.lifelines);
+            })
+            .catch(() => {
+              // Ignore failure on lifeline check
             });
         }
       }
@@ -53,7 +112,7 @@ const RoundScreen = () => {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [gameState, isPaused, playSound, setGameState]);
+  }, [gameState, isPaused, playSound, setGameState, setLifelines]);
 
   useEffect(() => {
     if (currentRound === 1 && !timerStarted) {
@@ -67,17 +126,18 @@ const RoundScreen = () => {
       setLoading(true);
       const token = localStorage.getItem("session_token");
       if (gameState === "hint") {
-        const res = await callRpc<any>("get_state", { p_session: token });
+        const res = await callRpc<StateResponse>("get_state", { p_session: token });
         if (res.success && res.hint) {
           setHintText(res.hint);
         }
       } else if (gameState === "round") {
-        const res = await callRpc<any>("get_question", { p_session: token });
-        if (res.success) {
+        const res = await callRpc<QuestionResponse>("get_question", { p_session: token });
+        if (res.success && res.question) {
           setCurrentQ(res.question);
-          setTimeLimit(res.time_limit);
+          setTimeLimit(res.time_limit || 60);
           setTimerKey(prev => prev + 1);
           setQuestionAnswered(false);
+          isSubmittingRef.current = false;
           setSelectedIndex(null);
           setSelectedStatus(null);
         }
@@ -98,37 +158,36 @@ const RoundScreen = () => {
 
   const handleCorrect = useCallback(() => {
     if (currentQ?.points) addScore(currentQ.points);
-    setTimeout(() => {
-      // Data is refreshed via RPC, handled in submit
-    }, 600);
   }, [addScore, currentQ]);
 
   const handleWrong = useCallback(() => {
     if (currentQ?.points) addScore(-Math.floor(currentQ.points / 2));
-    setTimeout(() => {
-      // Data is refreshed via RPC
-    }, 600);
   }, [addScore, currentQ]);
 
-  const submitAnswer = async (idx: number) => {
-    if (questionAnswered) return;
-    const token = localStorage.getItem("session_token");
-    const key = `q_${currentQ.id}_${Date.now()}`;
+  const submitAnswer = useCallback(async (idx: number) => {
+    if (isSubmittingRef.current || !currentQ) return;
+    isSubmittingRef.current = true;
     setQuestionAnswered(true);
     setSelectedIndex(idx);
+
+    const token = localStorage.getItem("session_token");
+    const key = `q_${currentQ.id}_${Date.now()}`;
     
     try {
-      let res;
+      let res: SubmitResponse;
       if (idx === -1) {
-         res = await callRpc<any>("report_timeout", { p_session: token, p_idempotency_key: key });
+         res = await callRpc<SubmitResponse>("report_timeout", { p_session: token, p_idempotency_key: key });
       } else {
-         res = await callRpc<any>("submit_answer", { p_session: token, p_selected_index: idx, p_idempotency_key: key });
+         res = await callRpc<SubmitResponse>("submit_answer", { p_session: token, p_selected_index: idx, p_idempotency_key: key });
       }
       
       if (res.success) {
          setSelectedStatus(res.correct ? 'correct' : 'wrong');
          if (res.correct) handleCorrect();
          else handleWrong();
+
+         if (typeof res.score === "number") setScore(res.score);
+         if (typeof res.lifelines === "number") setLifelines(res.lifelines);
          
          setTimeout(() => {
            if (res.stage === "eliminated") {
@@ -142,29 +201,31 @@ const RoundScreen = () => {
              setGameState("hint");
            } else {
              setQIndex(prev => prev + 1);
-             loadData(); // load next
+             loadData();
            }
          }, 600);
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to submit. Check connection.");
       setQuestionAnswered(false);
+      isSubmittingRef.current = false;
     }
-  };
+  }, [currentQ, currentRound, finishGame, handleCorrect, handleWrong, loadData, setGameState, setLifelines, setRoundComplete, setScore]);
 
   const handleTimeout = useCallback(() => {
     submitAnswer(-1);
-  }, [currentQ]);
+  }, [submitAnswer]);
 
   const handleNextRound = useCallback(async () => {
     const token = localStorage.getItem("session_token");
-    const res = await callRpc<any>("next_round", { p_session: token });
+    const res = await callRpc<NextRoundResponse>("next_round", { p_session: token });
     if (res.success) {
       const next = currentRound + 1;
       setCurrentRound(next);
       setQIndex(0);
       setTimerKey(0);
       setQuestionAnswered(false);
+      isSubmittingRef.current = false;
       setShowIntro(true);
       setGameState("qr-scan");
     }

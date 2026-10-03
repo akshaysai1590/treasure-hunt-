@@ -7,6 +7,17 @@ import { useMemo, useState, useEffect } from "react";
 import { callRpc } from "@/lib/api";
 import MatrixRain from "@/components/MatrixRain";
 
+interface LeaderboardItem {
+  username: string;
+  score: number;
+  completion_time: number;
+}
+
+interface LeaderboardResponse {
+  success: boolean;
+  leaderboard?: LeaderboardItem[];
+}
+
 const WinnerScreen = () => {
   const { username, resetGame, finalScore, finalTime } = useGame();
   const [entries, setEntries] = useState<{ username: string; score: number; timeSeconds: number; isCurrentUser?: boolean }[]>([]);
@@ -14,9 +25,9 @@ const WinnerScreen = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const res = await callRpc<any>("get_leaderboard");
+        const res = await callRpc<LeaderboardResponse>("get_leaderboard");
         if (res.success && res.leaderboard) {
-          const mapped = res.leaderboard.map((p: any) => ({
+          const mapped = res.leaderboard.map((p) => ({
             username: p.username,
             score: p.score,
             timeSeconds: p.completion_time,

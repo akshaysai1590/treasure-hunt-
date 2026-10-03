@@ -18,6 +18,15 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    sourcemap: false
-  }
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          scanner: ["@yudiel/react-qr-scanner"],
+        },
+      },
+    },
+  },
 }));

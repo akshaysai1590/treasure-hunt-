@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Clock } from "lucide-react";
 
 interface TimerProps {
@@ -9,24 +9,36 @@ interface TimerProps {
 
 const Timer = ({ seconds, onTimeout, isRunning }: TimerProps) => {
   const [timeLeft, setTimeLeft] = useState(seconds);
+  const onTimeoutRef = useRef(onTimeout);
+  onTimeoutRef.current = onTimeout;
+  const timedOutRef = useRef(false);
 
   useEffect(() => {
     setTimeLeft(seconds);
+    timedOutRef.current = false;
   }, [seconds]);
 
   useEffect(() => {
     if (!isRunning || timeLeft <= 0) return;
+
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          onTimeout();
+          clearInterval(interval);
+          if (!timedOutRef.current) {
+            timedOutRef.current = true;
+            setTimeout(() => {
+              onTimeoutRef.current();
+            }, 0);
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [isRunning, timeLeft, onTimeout]);
+  }, [isRunning, timeLeft]);
 
   const pct = (timeLeft / seconds) * 100;
   const isLow = timeLeft <= 5;

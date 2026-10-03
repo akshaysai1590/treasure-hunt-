@@ -11,6 +11,7 @@ export interface GameContextType {
   currentRound: number;
   setCurrentRound: (round: number) => void;
   lifelines: number;
+  setLifelines: (lifelines: number) => void;
   loseLifeline: () => boolean;
   gameState: GameState;
   setGameState: (state: GameState) => void;
@@ -18,6 +19,7 @@ export interface GameContextType {
   roundScores: boolean[];
   setRoundComplete: (round: number) => void;
   score: number;
+  setScore: (score: number) => void;
   addScore: (points: number) => void;
   elapsedSeconds: number;
   startGlobalTimer: () => void;
@@ -29,6 +31,31 @@ export interface GameContextType {
   registerParticipant: (name: string) => Promise<boolean>;
   isPaused: boolean;
   broadcastMessage: string | null;
+}
+
+interface StateResponse {
+  success: boolean;
+  error?: string;
+  participant: {
+    username: string;
+    current_round: number;
+    lifelines: number;
+    gameState: GameState;
+    score: number;
+    completion_time: number | null;
+  };
+  remaining_time?: number;
+  hint?: string;
+}
+
+interface RegisterResponse {
+  success: boolean;
+  error?: string;
+  session_token: string;
+  state: {
+    username: string;
+    stage: GameState;
+  };
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -56,6 +83,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [broadcastMessage, setBroadcastMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const token = localStorage.getItem("session_token");
     if (token) {
       rehydrateState(token);
@@ -64,14 +100,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const rehydrateState = async (token: string) => {
     try {
-      const res = await callRpc<any>("get_state", { p_session: token });
-      if (res.success) {
+      const res = await callRpc<StateResponse>("get_state", { p_session: token });
+      if (res.success && res.participant) {
         setParticipantId(token);
         setUsername(res.participant.username);
         setCurrentRound(res.participant.current_round);
         setLifelines(res.participant.lifelines);
         setGameState(res.participant.gameState);
         setScore(res.participant.score);
+
+        const initialCompleted = [false, false, false, false];
+        for (let r = 1; r < res.participant.current_round; r++) {
+          initialCompleted[r - 1] = true;
+        }
+        setRoundScores(initialCompleted);
         
         if (res.participant.gameState === "winner") {
           setFinalScore(res.participant.score);
@@ -89,9 +131,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const registerParticipant = useCallback(async (name: string): Promise<boolean> => {
     try {
-      // name is passed as "username|password" hack since we can't change the signature.
-      // Wait! The user said: "The useGame() hook keeps its existing exported names and signatures".
-      // Let's split by "|_|" if present.
       const parts = name.split("|_|");
       const actualName = parts[0];
       const gamePass = parts[1] || "";
@@ -99,12 +138,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const trimmedName = actualName.trim();
       if (!trimmedName) return false;
 
-      const res = await callRpc<any>("register_participant", { 
+      const res = await callRpc<RegisterResponse>("register_participant", { 
         p_username: trimmedName, 
         p_entry_password: gamePass 
       });
 
-      if (res.success) {
+      if (res.success && res.session_token) {
         setParticipantId(res.session_token);
         localStorage.setItem("session_token", res.session_token);
         setUsername(res.state.username);
@@ -114,15 +153,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error(res.error || "Failed to join game.");
         return false;
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error registering:", e);
-      toast.error(e.message || "Network error. Please try again.");
+      const msg = e instanceof Error ? e.message : "Network error. Please try again.";
+      toast.error(msg);
       return false;
     }
   }, []);
 
   const addScore = useCallback((points: number) => {
-    // UI only
     setScore(prev => prev + points);
   }, []);
 
@@ -219,11 +258,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         username, setUsername,
         currentRound, setCurrentRound,
-        lifelines, loseLifeline,
+        lifelines, setLifelines, loseLifeline,
         gameState, setGameState,
         resetGame,
         roundScores, setRoundComplete,
-        score, addScore,
+        score, setScore, addScore,
         elapsedSeconds, startGlobalTimer, stopGlobalTimer,
         finalScore, finalTime, finishGame,
         participantId, registerParticipant,
