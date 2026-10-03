@@ -75,18 +75,11 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Invalid admin password');
     END IF;
 
-    -- Delete all participants (which is effectively a reset) 
-    -- Or just reset scores? The prompt says Admin.tsx keeps its UI but never writes directly.
-    -- Admin.tsx used to do: update({ score: 0, completed: false, completion_time: null })
-    UPDATE participants 
-    SET score = 0, 
-        completed = false, 
-        completion_time = NULL, 
-        lives = 4, 
-        current_round = 1, 
-        stage = 'login', 
-        q_index = 0, 
-        processed_keys = '[]'::jsonb;
+    -- Reset game state (unpause, clear broadcast)
+    UPDATE game_state SET is_paused = false, broadcast_message = NULL WHERE id = 1;
+
+    -- Delete all participants with explicit WHERE clause to satisfy safe-update mode
+    DELETE FROM participants WHERE id IS NOT NULL;
         
     RETURN jsonb_build_object('success', true);
 END;
