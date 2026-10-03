@@ -1,14 +1,9 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { callRpc } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-
-const GLOBAL_ID = "00000000-0000-0000-0000-000000000000";
-
-// ⚠️ CHANGE THIS before the event! Use a strong passkey only the organizer knows.
-const ADMIN_PASSWORD = "CHANGE_ME_BEFORE_EVENT";
 
 interface Participant {
     id: string;
@@ -26,8 +21,9 @@ const Admin = () => {
     const [broadcastMsg, setBroadcastMsg] = useState("");
     const [isPaused, setIsPaused] = useState(false);
 
-    const checkAuth = () => {
-        if (password === ADMIN_PASSWORD) {
+    const checkAuth = async () => {
+        const res = await callRpc<any>("admin_login", { p_password: password });
+        if (res.success) {
             setAuthenticated(true);
             fetchParticipants();
         } else {
@@ -37,103 +33,46 @@ const Admin = () => {
 
     const fetchParticipants = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from("participants")
-            .select("id, username, score, completed, completion_time")
-            .order("score", { ascending: false });
-
-        if (error) {
-            toast.error("Failed to fetch data");
-            console.error("Fetch error:", error);
+        const res = await callRpc<any>("admin_list_participants", { p_password: password });
+        if (res.success) {
+            setParticipants(res.participants || []);
         } else {
-            setParticipants(data || []);
+            toast.error("Failed to fetch data");
         }
         setLoading(false);
-    };
-
-    // ============ GLOBAL SETTINGS ROW ============
-    useEffect(() => {
-        if (authenticated) {
-            ensureGlobalSettings();
-        }
-    }, [authenticated]);
-
-    const ensureGlobalSettings = async () => {
-        const { data, error: readError } = await supabase
-            .from("participants")
-            .select("id, username, score")
-            .eq("id", GLOBAL_ID)
-            .maybeSingle();
-
-        if (readError) {
-            console.error("Error reading global settings:", readError);
-            toast.error("Failed to read global settings");
-            return;
-        }
-
-        if (!data) {
-            // Create GLOBAL_SETTINGS row — only use existing columns
-            const { error: insertError } = await supabase
-                .from("participants")
-                .insert({
-                    id: GLOBAL_ID,
-                    username: "GLOBAL_SETTINGS",
-                    score: 0,
-                    completed: false,
-                });
-
-            if (insertError) {
-                console.error("Insert error:", insertError);
-                toast.error("Failed to create settings row: " + insertError.message);
-            } else {
-                toast.success("Global settings created ✅");
-            }
-        } else {
-            setIsPaused(data.score === 1);
-            console.log("Global settings loaded:", data);
-        }
     };
 
     // ============ GAME ACTIONS ============
     const resetGame = async () => {
         if (!confirm("ARE YOU SURE? This will RESET all scores to 0.")) return;
-
-        const { error } = await supabase
-            .from("participants")
-            .update({ score: 0, completed: false, completion_time: null })
-            .neq("id", GLOBAL_ID);
-
-        if (error) {
-            toast.error("Reset failed: " + error.message);
-        } else {
+        const res = await callRpc<any>("admin_reset_game", { p_password: password });
+        if (res.success) {
             toast.success("Game Reset for Everyone ✅");
             fetchParticipants();
+        } else {
+            toast.error("Reset failed");
         }
     };
 
     const adjustScore = async (id: string, currentScore: number, amount: number) => {
-        const { error } = await supabase
-            .from("participants")
-            .update({ score: currentScore + amount })
-            .eq("id", id);
-        if (error) toast.error("Score update failed");
-        else { toast.success(`Score ${amount > 0 ? '+' : ''}${amount}`); fetchParticipants(); }
+        const res = await callRpc<any>("admin_adjust_score", { p_password: password, p_user_id: id, p_amount: amount });
+        if (res.success) {
+            toast.success(`Score ${amount > 0 ? '+' : ''}${amount}`);
+            fetchParticipants();
+        } else {
+            toast.error("Score update failed");
+        }
     };
 
     // ============ GOD MODE: PAUSE / BROADCAST ============
     const togglePause = async () => {
         const newStatus = !isPaused;
-        const { error } = await supabase
-            .from("participants")
-            .update({ score: newStatus ? 1 : 0 })
-            .eq("id", GLOBAL_ID);
-
-        if (error) {
-            console.error("Pause toggle error:", error);
-            toast.error("Pause toggle failed!");
-        } else {
+        const res = await callRpc<any>("admin_pause_game", { p_password: password, p_paused: newStatus });
+        if (res.success) {
             setIsPaused(newStatus);
             toast.info(newStatus ? "GAME PAUSED ⏸️" : "GAME RESUMED ▶️");
+        } else {
+            toast.error("Pause toggle failed!");
         }
     };
 
@@ -144,28 +83,19 @@ const Admin = () => {
         }
 
         const message = `📢 ${broadcastMsg.trim()}`;
+        const res = await callRpc<any>("admin_broadcast", { p_password: password, p_message: message });
+        
+        if (res.success) {
+            toast.success("📢 Broadcast Sent!");
+            setBroadcastMsg("");
 
-        const { error } = await supabase
-            .from("participants")
-            .update({ username: message })
-            .eq("id", GLOBAL_ID);
-
-        if (error) {
-            console.error("Broadcast send error:", error);
-            toast.error("Broadcast failed: " + error.message);
-            return;
+            // Reset username back after 10s
+            setTimeout(async () => {
+                await callRpc<any>("admin_broadcast", { p_password: password, p_message: null });
+            }, 10000);
+        } else {
+            toast.error("Broadcast failed");
         }
-
-        toast.success("📢 Broadcast Sent!");
-        setBroadcastMsg("");
-
-        // Reset username back after 10s
-        setTimeout(async () => {
-            await supabase
-                .from("participants")
-                .update({ username: "GLOBAL_SETTINGS" })
-                .eq("id", GLOBAL_ID);
-        }, 10000);
     };
 
     // ============ UI ============
@@ -185,9 +115,6 @@ const Admin = () => {
             </div>
         );
     }
-
-    // Filter out the GLOBAL_SETTINGS row by ID
-    const realParticipants = participants.filter(p => p.id !== GLOBAL_ID);
 
     return (
         <div className="p-4 md:p-8 min-h-screen bg-background pb-20">
@@ -234,7 +161,7 @@ const Admin = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {realParticipants.map((p) => (
+                        {participants.map((p) => (
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.username}</TableCell>
                                 <TableCell>

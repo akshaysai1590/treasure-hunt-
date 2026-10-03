@@ -8,9 +8,6 @@ import { toast } from "sonner";
 import MatrixRain from "@/components/MatrixRain";
 import RulesPopup from "@/components/RulesPopup";
 
-// ⚠️ CHANGE THIS before the event! This is the password given to players to start the game.
-const GAME_PASSWORD = "CHANGE_ME_BEFORE_EVENT";
-
 const LoginScreen = () => {
   const { registerParticipant, setGameState } = useGame();
   const { playSound } = useSound();
@@ -24,18 +21,14 @@ const LoginScreen = () => {
       playSound("wrong");
       return;
     }
-    if (gamePass !== GAME_PASSWORD) {
-      playSound("wrong");
-      return;
-    }
     playSound("click");
     setLoading(true);
-    const registered = await registerParticipant(name.trim());
+    // Passing password via actualName|_|gamePass hack to preserve useGame signature
+    const registered = await registerParticipant(`${name.trim()}|_|${gamePass.trim()}`);
     setLoading(false);
 
     if (!registered) {
       playSound("wrong");
-      toast.error("Could not join the game. Please check your connection and try again.");
       return;
     }
 

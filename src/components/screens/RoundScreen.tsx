@@ -3,58 +3,58 @@ import { useGame } from "@/context/GameContext";
 import GameHeader from "@/components/GameHeader";
 import QuestionCard from "@/components/QuestionCard";
 import Timer from "@/components/Timer";
-import { round1Questions, getRound1Questions, getRound2Questions, getRound3Questions, getRound4Questions, round2Questions, round3Questions, round4Questions, locationHints, Question } from "@/data/questions";
 import HintScreen from "@/components/HintScreen";
 import { useSound } from "@/context/SoundContext";
 import { toast } from "sonner";
 import RoundIntroPopup from "@/components/RoundIntroPopup";
+import { callRpc } from "@/lib/api";
 
 const roundTitles = ["Logic & Aptitude", "Tech Riddles", "Rapid Fire", "Final DSA Challenge"];
 const roundTimers = [120, 150, 45, 180];
-const roundPointsPerQ = [10, 15, 8, 0]; // R4 uses per-question points
-
-const getRoundQuestions = (round: number, username: string): Question[] => {
-  switch (round) {
-    case 1: return getRound1Questions(username);
-    case 2: return getRound2Questions(username);
-    case 3: return getRound3Questions(username);
-    case 4: return getRound4Questions(username);
-    default: return [];
-  }
-};
 
 const RoundScreen = () => {
-  const { currentRound, setCurrentRound, loseLifeline, setGameState, setRoundComplete, gameState, addScore, startGlobalTimer, finishGame, lifelines, username, isPaused } = useGame();
+  const { currentRound, setCurrentRound, setGameState, setRoundComplete, gameState, addScore, startGlobalTimer, finishGame, lifelines, isPaused } = useGame();
   const { playSound } = useSound();
-  const [qIndex, setQIndex] = useState(0);
-  const [showHint, setShowHint] = useState(false);
+  const [currentQ, setCurrentQ] = useState<any>(null);
+  const [timeLimit, setTimeLimit] = useState(60);
+  const [hintText, setHintText] = useState("");
+  const [qIndex, setQIndex] = useState(0); // local cosmetic tracker
   const [timerKey, setTimerKey] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
   const [questionAnswered, setQuestionAnswered] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<'correct' | 'wrong' | null>(null);
 
   // Anti-Cheat: Focus Mode Detection
   useEffect(() => {
+    let hideTime = 0;
     const handleVisibilityChange = () => {
-      // If the document becomes hidden (user switches tabs/apps)
-      if (document.hidden && gameState === "round" && !showHint && !isPaused) {
-        playSound("wrong");
-        loseLifeline();
+      if (document.hidden && gameState === "round" && !isPaused) {
+        hideTime = Date.now();
       }
-      // If the document becomes visible again (user returns)
-      else if (!document.hidden && gameState === "round" && !showHint && !isPaused) {
-        toast.error("⚠️ SYSTEM BREACH DETECTED: You left the secure terminal! Lifeline Lost.", {
-          duration: 5000,
-          style: { border: "2px solid red", color: "red", background: "#220000" }
-        });
+      else if (!document.hidden && gameState === "round" && !isPaused) {
+        const awayMs = Date.now() - hideTime;
+        if (awayMs > 3000) {
+          playSound("wrong");
+          toast.error("⚠️ SYSTEM BREACH DETECTED: You left the secure terminal! Lifeline Lost.", {
+            duration: 5000,
+            style: { border: "2px solid red", color: "red", background: "#220000" }
+          });
+          const token = localStorage.getItem("session_token");
+          callRpc("lose_lifeline", { p_session: token, p_reason: "tab_switch", p_idempotency_key: `tab_${Date.now()}` })
+            .then((res: any) => {
+               if (res.stage === "eliminated") setGameState("eliminated");
+            });
+        }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [gameState, showHint, isPaused, loseLifeline, playSound]);
+  }, [gameState, isPaused, playSound, setGameState]);
 
-  // Start global timer on first render of round 1
   useEffect(() => {
     if (currentRound === 1 && !timerStarted) {
       startGlobalTimer();
@@ -62,73 +62,117 @@ const RoundScreen = () => {
     }
   }, [currentRound, timerStarted, startGlobalTimer]);
 
-  // Memoize questions to prevent shuffling on re-renders
-  const questions = React.useMemo(() => getRoundQuestions(currentRound, username), [currentRound, username]);
-  const currentQ = questions[qIndex];
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("session_token");
+      if (gameState === "hint") {
+        const res = await callRpc<any>("get_state", { p_session: token });
+        if (res.success && res.hint) {
+          setHintText(res.hint);
+        }
+      } else if (gameState === "round") {
+        const res = await callRpc<any>("get_question", { p_session: token });
+        if (res.success) {
+          setCurrentQ(res.question);
+          setTimeLimit(res.time_limit);
+          setTimerKey(prev => prev + 1);
+          setQuestionAnswered(false);
+          setSelectedIndex(null);
+          setSelectedStatus(null);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Network error. Retrying...");
+    } finally {
+      setLoading(false);
+    }
+  }, [gameState]);
 
   useEffect(() => {
-    setQuestionAnswered(false);
-  }, [currentRound, qIndex]);
-
-  const advanceQuestion = useCallback(() => {
-    if (qIndex + 1 < questions.length) {
-      setQIndex(prev => prev + 1);
-      setTimerKey(prev => prev + 1);
-      setQuestionAnswered(false);
-    } else {
-      // Round complete
-      setRoundComplete(currentRound);
-      if (currentRound >= 4) {
-        finishGame();
-      } else {
-        setShowHint(true);
-      }
+    if (!showIntro) {
+      loadData();
     }
-  }, [qIndex, questions.length, currentRound, setRoundComplete, finishGame]);
-
-  const getQuestionPoints = useCallback(() => {
-    // R4 has per-question points, others use flat rate
-    if (currentRound === 4 && currentQ?.points) return currentQ.points;
-    return roundPointsPerQ[currentRound - 1];
-  }, [currentRound, currentQ]);
+  }, [showIntro, gameState, loadData]);
 
   const handleCorrect = useCallback(() => {
-    const pts = currentRound === 4 && currentQ?.points ? currentQ.points : roundPointsPerQ[currentRound - 1];
-    addScore(pts);
-    setTimeout(() => advanceQuestion(), 600);
-  }, [advanceQuestion, addScore, currentRound, currentQ]);
+    if (currentQ?.points) addScore(currentQ.points);
+    setTimeout(() => {
+      // Data is refreshed via RPC, handled in submit
+    }, 600);
+  }, [addScore, currentQ]);
 
   const handleWrong = useCallback(() => {
-    const pts = currentRound === 4 && currentQ?.points ? currentQ.points : roundPointsPerQ[currentRound - 1];
-    addScore(-Math.floor(pts / 2)); // lose half points for wrong
+    if (currentQ?.points) addScore(-Math.floor(currentQ.points / 2));
     setTimeout(() => {
-      const alive = loseLifeline();
-      if (alive) advanceQuestion();
+      // Data is refreshed via RPC
     }, 600);
-  }, [loseLifeline, advanceQuestion, addScore, currentRound, currentQ]);
+  }, [addScore, currentQ]);
+
+  const submitAnswer = async (idx: number) => {
+    if (questionAnswered) return;
+    const token = localStorage.getItem("session_token");
+    const key = `q_${currentQ.id}_${Date.now()}`;
+    setQuestionAnswered(true);
+    setSelectedIndex(idx);
+    
+    try {
+      let res;
+      if (idx === -1) {
+         res = await callRpc<any>("report_timeout", { p_session: token, p_idempotency_key: key });
+      } else {
+         res = await callRpc<any>("submit_answer", { p_session: token, p_selected_index: idx, p_idempotency_key: key });
+      }
+      
+      if (res.success) {
+         setSelectedStatus(res.correct ? 'correct' : 'wrong');
+         if (res.correct) handleCorrect();
+         else handleWrong();
+         
+         setTimeout(() => {
+           if (res.stage === "eliminated") {
+             setGameState("eliminated");
+           } else if (res.finished) {
+             setRoundComplete(currentRound);
+             finishGame();
+             setGameState("winner");
+           } else if (res.round_complete) {
+             setRoundComplete(currentRound);
+             setGameState("hint");
+           } else {
+             setQIndex(prev => prev + 1);
+             loadData(); // load next
+           }
+         }, 600);
+      }
+    } catch (e) {
+      toast.error("Failed to submit. Check connection.");
+      setQuestionAnswered(false);
+    }
+  };
 
   const handleTimeout = useCallback(() => {
-    const pts = currentRound === 4 && currentQ?.points ? currentQ.points : roundPointsPerQ[currentRound - 1];
-    addScore(-Math.floor(pts / 2));
-    const alive = loseLifeline();
-    if (alive) advanceQuestion();
-  }, [loseLifeline, advanceQuestion, addScore, currentRound, currentQ]);
+    submitAnswer(-1);
+  }, [currentQ]);
 
-  const handleNextRound = useCallback(() => {
-    const next = currentRound + 1;
-    setCurrentRound(next);
-    setQIndex(0);
-    setTimerKey(0);
-    setQuestionAnswered(false);
-    setShowHint(false);
-    setShowIntro(true);
-    setGameState("qr-scan");
+  const handleNextRound = useCallback(async () => {
+    const token = localStorage.getItem("session_token");
+    const res = await callRpc<any>("next_round", { p_session: token });
+    if (res.success) {
+      const next = currentRound + 1;
+      setCurrentRound(next);
+      setQIndex(0);
+      setTimerKey(0);
+      setQuestionAnswered(false);
+      setShowIntro(true);
+      setGameState("qr-scan");
+    }
   }, [currentRound, setCurrentRound, setGameState]);
 
   if (gameState === "eliminated") return null;
 
-  // Show round intro popup
-  if (showIntro) {
+  if (showIntro && gameState === "round") {
     return (
       <div className="flex flex-col min-h-screen">
         <GameHeader />
@@ -141,20 +185,24 @@ const RoundScreen = () => {
     );
   }
 
-  if (showHint) {
+  if (gameState === "hint") {
     return (
       <div className="flex flex-col min-h-screen">
         <GameHeader />
-        <HintScreen
-          hint={locationHints[currentRound - 1]}
-          onContinue={handleNextRound}
-          roundCompleted={currentRound}
-        />
+        {loading ? <div className="m-auto text-primary">Loading...</div> : (
+          <HintScreen
+            hint={hintText}
+            onContinue={handleNextRound}
+            roundCompleted={currentRound}
+          />
+        )}
       </div>
     );
   }
 
-  if (!currentQ) return null;
+  if (loading || !currentQ) {
+    return <div className="flex flex-col min-h-screen items-center justify-center text-primary">Loading terminal...</div>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -172,11 +220,11 @@ const RoundScreen = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              Q{qIndex + 1}/{questions.length}
+              Q{qIndex + 1}
             </span>
             <Timer
               key={timerKey}
-              seconds={roundTimers[currentRound - 1]}
+              seconds={timeLimit}
               onTimeout={handleTimeout}
               isRunning={!questionAnswered && !isPaused}
             />
@@ -187,11 +235,11 @@ const RoundScreen = () => {
           key={`${currentRound}-${qIndex}`}
           question={currentQ.question}
           options={currentQ.options}
-          correctIndex={currentQ.correctIndex}
-          onCorrect={handleCorrect}
-          onWrong={handleWrong}
-          onAnswered={() => setQuestionAnswered(true)}
+          onSelect={(idx: number) => submitAnswer(idx)}
           image={currentQ.image}
+          selectedIndex={selectedIndex}
+          selectedStatus={selectedStatus}
+          disabled={questionAnswered}
         />
       </div>
     </div>

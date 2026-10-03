@@ -1,34 +1,20 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle } from "lucide-react";
 
 interface QuestionCardProps {
   question: string;
   options: string[];
-  correctIndex: number;
-  onCorrect: () => void;
-  onWrong: () => void;
-  onAnswered?: () => void;
+  onSelect: (idx: number) => void;
   image?: string;
+  selectedIndex?: number | null;
+  selectedStatus?: 'correct' | 'wrong' | null;
+  disabled?: boolean;
 }
 
-const QuestionCard = ({ question, options, correctIndex, onCorrect, onWrong, onAnswered, image }: QuestionCardProps) => {
-  const [selected, setSelected] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(false);
+const QuestionCard = ({ question, options, onSelect, image, selectedIndex, selectedStatus, disabled }: QuestionCardProps) => {
 
   const handleSelect = (idx: number) => {
-    if (answered) return;
-    setSelected(idx);
-    setAnswered(true);
-    // Lock the question immediately so the per-question timer cannot also expire
-    // while the answer feedback is being shown.
-    onAnswered?.();
-
-    if (idx === correctIndex) {
-      onCorrect();
-    } else {
-      onWrong();
-    }
+    if (disabled) return;
+    onSelect(idx);
   };
 
   return (
@@ -41,16 +27,17 @@ const QuestionCard = ({ question, options, correctIndex, onCorrect, onWrong, onA
       <h3 className="text-lg font-medium mb-5 text-foreground leading-relaxed">{question}</h3>
       <div className="flex flex-col gap-3">
         {options.map((opt, i) => {
-          const isCorrect = answered && i === correctIndex;
-          const isWrong = answered && i === selected && i !== correctIndex;
+          const isSelected = i === selectedIndex;
+          const isCorrect = isSelected && selectedStatus === 'correct';
+          const isWrong = isSelected && selectedStatus === 'wrong';
 
           return (
             <button
               key={i}
               onClick={() => handleSelect(i)}
-              disabled={answered}
+              disabled={disabled}
               className={`relative w-full text-left px-4 py-3 rounded-md border transition-all duration-300 font-medium text-sm
-                ${answered
+                ${disabled
                   ? isCorrect
                     ? "border-primary bg-primary/10 text-primary"
                     : isWrong

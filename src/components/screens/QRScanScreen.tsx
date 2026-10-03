@@ -4,23 +4,29 @@ import { ScanLine } from "lucide-react";
 import GameHeader from "@/components/GameHeader";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { toast } from "sonner";
-import { roundPasswords } from "@/data/questions";
+import { callRpc } from "@/lib/api";
 
 const QRScanScreen = () => {
   const { currentRound, setGameState } = useGame();
   const { playSound } = useSound();
 
-  const handleScan = (result: string) => {
+  const handleScan = async (result: string) => {
     if (result) {
       playSound("scan");
-      const expectedPassword = roundPasswords[currentRound];
-      if (result === expectedPassword) {
-        playSound("correct");
-        toast.success("Access Granted! Proceeding to next round.");
-        setGameState("round");
-      } else {
+      try {
+        const token = localStorage.getItem("session_token");
+        const res = await callRpc<any>("verify_qr", { p_session: token, p_code: result });
+        if (res.success) {
+          playSound("correct");
+          toast.success("Access Granted! Proceeding to next round.");
+          setGameState("round");
+        } else {
+          playSound("wrong");
+          toast.error("Access Denied! Invalid QR Code.");
+        }
+      } catch (e) {
         playSound("wrong");
-        toast.error("Access Denied! Invalid QR Code.");
+        toast.error("Error verifying QR Code.");
       }
     }
   };

@@ -4,45 +4,33 @@ import { Trophy, RotateCcw, Star, Clock, Award } from "lucide-react";
 import Leaderboard from "@/components/Leaderboard";
 import { formatTime } from "@/data/leaderboard";
 import { useMemo, useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { callRpc } from "@/lib/api";
 import MatrixRain from "@/components/MatrixRain";
 
-interface DbParticipant {
-  id: string;
-  username: string;
-  score: number;
-  completion_time: number;
-}
-
 const WinnerScreen = () => {
-  const { username, resetGame, finalScore, finalTime, participantId } = useGame();
+  const { username, resetGame, finalScore, finalTime } = useGame();
   const [entries, setEntries] = useState<{ username: string; score: number; timeSeconds: number; isCurrentUser?: boolean }[]>([]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const { data, error } = await supabase
-        .from("participants")
-        .select("id, username, score, completion_time")
-        .eq("completed", true)
-        .order("score", { ascending: false })
-        .order("completion_time", { ascending: true });
-
-      if (error) {
+      try {
+        const res = await callRpc<any>("get_leaderboard");
+        if (res.success && res.leaderboard) {
+          const mapped = res.leaderboard.map((p: any) => ({
+            username: p.username,
+            score: p.score,
+            timeSeconds: p.completion_time,
+            isCurrentUser: p.username === username,
+          }));
+          setEntries(mapped);
+        }
+      } catch (error) {
         console.error("Error fetching leaderboard:", error);
-        return;
       }
-
-      const mapped = (data as DbParticipant[]).map((p) => ({
-        username: p.username,
-        score: p.score,
-        timeSeconds: p.completion_time,
-        isCurrentUser: p.id === participantId,
-      }));
-      setEntries(mapped);
     };
 
     fetchLeaderboard();
-  }, [participantId]);
+  }, [username]);
 
   const userRank = useMemo(() => {
     const idx = entries.findIndex(e => e.isCurrentUser);
