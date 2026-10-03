@@ -31,6 +31,9 @@ export interface GameContextType {
   registerParticipant: (name: string) => Promise<boolean>;
   isPaused: boolean;
   broadcastMessage: string | null;
+  isRehydrating: boolean;
+  restoredQIndex: number;
+  restoredRemainingTime: number | null;
 }
 
 interface StateResponse {
@@ -42,6 +45,7 @@ interface StateResponse {
     lifelines: number;
     gameState: GameState;
     score: number;
+    q_index: number;
     completion_time: number | null;
   };
   remaining_time?: number;
@@ -67,6 +71,8 @@ export const useGame = () => {
 };
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const hasToken = !!localStorage.getItem("session_token");
+  
   const [username, setUsername] = useState("");
   const [currentRound, setCurrentRound] = useState(1);
   const [lifelines, setLifelines] = useState(4);
@@ -77,6 +83,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
+  const [isRehydrating, setIsRehydrating] = useState(hasToken);
+  const [restoredQIndex, setRestoredQIndex] = useState(0);
+  const [restoredRemainingTime, setRestoredRemainingTime] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [isPaused, setIsPaused] = useState(false);
@@ -108,6 +117,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLifelines(res.participant.lifelines);
         setGameState(res.participant.gameState);
         setScore(res.participant.score);
+        setRestoredQIndex(res.participant.q_index ?? 0);
+        if (typeof res.remaining_time === "number") {
+          setRestoredRemainingTime(res.remaining_time);
+        }
 
         const initialCompleted = [false, false, false, false];
         for (let r = 1; r < res.participant.current_round; r++) {
@@ -126,6 +139,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (e) {
       console.error("Rehydration error", e);
+      localStorage.removeItem("session_token");
+      setGameState("login");
+    } finally {
+      setIsRehydrating(false);
     }
   };
 
@@ -250,6 +267,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFinalScore(null);
     setFinalTime(null);
     setParticipantId(null);
+    setRestoredQIndex(0);
+    setRestoredRemainingTime(null);
     localStorage.removeItem("session_token");
   }, [stopGlobalTimer]);
 
@@ -266,7 +285,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         elapsedSeconds, startGlobalTimer, stopGlobalTimer,
         finalScore, finalTime, finishGame,
         participantId, registerParticipant,
-        isPaused, broadcastMessage
+        isPaused, broadcastMessage,
+        isRehydrating,
+        restoredQIndex,
+        restoredRemainingTime,
       }}
     >
       {children}

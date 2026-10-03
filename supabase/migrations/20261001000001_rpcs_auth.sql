@@ -63,10 +63,10 @@ BEGIN
         -- But wait, get_question will be responsible for fetching the question. We just rehydrate it here.
         
         -- time limit based on round
-        IF v_part.current_round = 1 THEN v_q_limit := 120;
-        ELSIF v_part.current_round = 2 THEN v_q_limit := 150;
+        IF v_part.current_round = 1 THEN v_q_limit := 15;
+        ELSIF v_part.current_round = 2 THEN v_q_limit := 30;
         ELSIF v_part.current_round = 3 THEN v_q_limit := 45;
-        ELSIF v_part.current_round = 4 THEN v_q_limit := 180;
+        ELSIF v_part.current_round = 4 THEN v_q_limit := 90;
         END IF;
 
         IF v_part.question_served_at IS NOT NULL THEN

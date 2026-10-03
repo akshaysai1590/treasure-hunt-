@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import RoundIntroPopup from "@/components/RoundIntroPopup";
 import { callRpc } from "@/lib/api";
 
-const roundTitles = ["Logic & Aptitude", "Tech Riddles", "Rapid Fire", "Final DSA Challenge"];
+const roundTitles = ["Logic & Aptitude", "Tech & Riddles", "Rapid Fire", "Brain Teasers"];
 
 interface QuestionItem {
   id: number;
@@ -66,21 +66,26 @@ const RoundScreen = () => {
     startGlobalTimer, 
     finishGame, 
     lifelines, 
-    isPaused 
+    isPaused,
+    restoredQIndex,
+    restoredRemainingTime,
   } = useGame();
   const { playSound } = useSound();
   const [currentQ, setCurrentQ] = useState<QuestionItem | null>(null);
   const [timeLimit, setTimeLimit] = useState(60);
   const [hintText, setHintText] = useState("");
-  const [qIndex, setQIndex] = useState(0);
+  const [qIndex, setQIndex] = useState(restoredQIndex);
   const [timerKey, setTimerKey] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
   const [questionAnswered, setQuestionAnswered] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
+  // Skip intro if player is resuming mid-round (restoredQIndex > 0) or resuming from rehydration
+  const [showIntro, setShowIntro] = useState(restoredQIndex === 0);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'correct' | 'wrong' | null>(null);
   const isSubmittingRef = useRef(false);
+  // Track if this is first load (to use restoredRemainingTime)
+  const isFirstLoadRef = useRef(true);
 
   // Anti-Cheat: Focus Mode Detection
   useEffect(() => {
@@ -121,6 +126,14 @@ const RoundScreen = () => {
     }
   }, [currentRound, timerStarted, startGlobalTimer]);
 
+  // Also start global timer on rehydration (any round)
+  useEffect(() => {
+    if (!timerStarted && restoredQIndex > 0) {
+      startGlobalTimer();
+      setTimerStarted(true);
+    }
+  }, [timerStarted, restoredQIndex, startGlobalTimer]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -134,7 +147,14 @@ const RoundScreen = () => {
         const res = await callRpc<QuestionResponse>("get_question", { p_session: token });
         if (res.success && res.question) {
           setCurrentQ(res.question);
-          setTimeLimit(res.time_limit || 60);
+          // On first load after rehydration, use remaining time from server if available
+          if (isFirstLoadRef.current && restoredRemainingTime !== null && restoredRemainingTime > 0) {
+            setTimeLimit(restoredRemainingTime);
+            isFirstLoadRef.current = false;
+          } else {
+            setTimeLimit(res.time_limit || 60);
+            isFirstLoadRef.current = false;
+          }
           setTimerKey(prev => prev + 1);
           setQuestionAnswered(false);
           isSubmittingRef.current = false;
@@ -148,7 +168,7 @@ const RoundScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [gameState]);
+  }, [gameState, restoredRemainingTime]);
 
   useEffect(() => {
     if (!showIntro) {

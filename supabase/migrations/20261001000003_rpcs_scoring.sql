@@ -28,10 +28,10 @@ BEGIN
     END IF;
 
     -- Time limits
-    IF v_part.current_round = 1 THEN v_q_limit := 120; v_max_q := 3;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 150; v_max_q := 3;
+    IF v_part.current_round = 1 THEN v_q_limit := 15; v_max_q := 5;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 30; v_max_q := 5;
     ELSIF v_part.current_round = 3 THEN v_q_limit := 45; v_max_q := 5;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 180; v_max_q := 2;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 90; v_max_q := 5;
     END IF;
 
     -- Fetch the correct question by reversing the deterministic selection
@@ -40,44 +40,18 @@ BEGIN
     -- So we just recreate the deterministic selection here exactly as in get_question.
     
     DECLARE
-        v_pool_name TEXT;
-        v_real_pool TEXT;
-        v_pool_count INT;
+        v_round_count INT;
         v_seed_val BIGINT;
         v_picked_offset INT;
     BEGIN
-        IF v_part.current_round = 1 THEN
-            IF v_part.q_index = 0 THEN v_pool_name := 'logical';
-            ELSIF v_part.q_index = 1 THEN v_pool_name := 'verbal';
-            ELSIF v_part.q_index = 2 THEN v_pool_name := 'aptitude';
-            END IF;
-        ELSIF v_part.current_round = 2 THEN
-            v_pool_name := 'tech' || (v_part.q_index + 1)::TEXT;
-        ELSIF v_part.current_round = 3 THEN
-            IF v_part.q_index = 0 THEN v_pool_name := 'fill';
-            ELSIF v_part.q_index = 1 THEN v_pool_name := 'match';
-            ELSIF v_part.q_index = 2 THEN v_pool_name := 'keyword';
-            ELSIF v_part.q_index = 3 THEN v_pool_name := 'tf';
-            ELSIF v_part.q_index = 4 THEN v_pool_name := 'output';
-            END IF;
-        ELSIF v_part.current_round = 4 THEN
-            v_pool_name := 'dsa' || (v_part.q_index + 1)::TEXT;
-        END IF;
-
-        v_real_pool := CASE 
-            WHEN v_pool_name LIKE 'tech%' THEN 'tech'
-            WHEN v_pool_name LIKE 'dsa%' THEN 'dsa'
-            ELSE v_pool_name
-        END;
-
-        SELECT count(*) INTO v_pool_count FROM questions WHERE round = v_part.current_round AND pool_name = v_real_pool;
+        SELECT count(*) INTO v_round_count FROM questions WHERE round = v_part.current_round;
         v_seed_val := ('x' || substr(replace(v_part.id::text, '-', ''), 1, 14))::bit(56)::bigint;
-        v_picked_offset := (v_seed_val + v_part.q_index) % v_pool_count;
+        v_picked_offset := (v_seed_val + v_part.q_index * 7) % v_round_count;
 
-        SELECT * INTO v_question 
-        FROM questions 
-        WHERE round = v_part.current_round AND pool_name = v_real_pool
-        ORDER BY id 
+        SELECT * INTO v_question
+        FROM questions
+        WHERE round = v_part.current_round
+        ORDER BY id
         OFFSET v_picked_offset LIMIT 1;
     END;
 

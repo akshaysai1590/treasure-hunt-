@@ -5,9 +5,19 @@ import RoundScreen from "@/components/screens/RoundScreen";
 import WinnerScreen from "@/components/screens/WinnerScreen";
 import EliminatedScreen from "@/components/screens/EliminatedScreen";
 import GlobalOverlay from "@/components/GlobalOverlay";
+import { Loader2 } from "lucide-react";
 
 const GameRouter = () => {
-  const { gameState } = useGame();
+  const { gameState, isRehydrating } = useGame();
+
+  if (isRehydrating) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="text-primary font-mono text-sm tracking-widest animate-pulse">RESTORING SESSION...</p>
+      </div>
+    );
+  }
 
   switch (gameState) {
     case "login":

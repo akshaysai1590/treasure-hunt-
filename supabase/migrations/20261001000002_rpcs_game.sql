@@ -43,54 +43,27 @@ BEGIN
     IF v_part.stage != 'round' THEN RETURN jsonb_build_object('success', false, 'error', 'Not in round stage'); END IF;
 
     -- Time limits
-    IF v_part.current_round = 1 THEN v_q_limit := 120;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 150;
+    IF v_part.current_round = 1 THEN v_q_limit := 15;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 30;
     ELSIF v_part.current_round = 3 THEN v_q_limit := 45;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 180;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 90;
     END IF;
 
-    -- Determine pool name based on round and q_index
-    IF v_part.current_round = 1 THEN
-        IF v_part.q_index = 0 THEN v_pool_name := 'logical';
-        ELSIF v_part.q_index = 1 THEN v_pool_name := 'verbal';
-        ELSIF v_part.q_index = 2 THEN v_pool_name := 'aptitude';
-        END IF;
-    ELSIF v_part.current_round = 2 THEN
-        v_pool_name := 'tech' || (v_part.q_index + 1)::TEXT;
-    ELSIF v_part.current_round = 3 THEN
-        IF v_part.q_index = 0 THEN v_pool_name := 'fill';
-        ELSIF v_part.q_index = 1 THEN v_pool_name := 'match';
-        ELSIF v_part.q_index = 2 THEN v_pool_name := 'keyword';
-        ELSIF v_part.q_index = 3 THEN v_pool_name := 'tf';
-        ELSIF v_part.q_index = 4 THEN v_pool_name := 'output';
-        END IF;
-    ELSIF v_part.current_round = 4 THEN
-        v_pool_name := 'dsa' || (v_part.q_index + 1)::TEXT;
-    END IF;
-
-    -- Map pool_name back to the generic pool in DB (since some are shared pools)
+    -- Pick a pseudorandom question from the current round, avoiding repeats
+    -- Use participant UUID as seed, offset by q_index to get different questions
     DECLARE
-        v_real_pool TEXT;
+        v_round_count INT;
+        v_seed_val BIGINT;
+        v_picked_offset INT;
     BEGIN
-        v_real_pool := CASE 
-            WHEN v_pool_name LIKE 'tech%' THEN 'tech'
-            WHEN v_pool_name LIKE 'dsa%' THEN 'dsa'
-            ELSE v_pool_name
-        END;
-        
-        SELECT count(*) INTO v_pool_count FROM questions WHERE round = v_part.current_round AND pool_name = v_real_pool;
-        
-        -- Pseudorandom deterministic selection based on UUID and pool name
-        -- UUID is hex, we take a substring and convert to bigint
+        SELECT count(*) INTO v_round_count FROM questions WHERE round = v_part.current_round;
         v_seed_val := ('x' || substr(replace(v_part.id::text, '-', ''), 1, 14))::bit(56)::bigint;
-        
-        -- Add index to avoid picking the same question twice from the same pool if possible
-        v_picked_offset := (v_seed_val + v_part.q_index) % v_pool_count;
-        
-        SELECT id, question_text, options, points INTO v_question 
-        FROM questions 
-        WHERE round = v_part.current_round AND pool_name = v_real_pool
-        ORDER BY id 
+        v_picked_offset := (v_seed_val + v_part.q_index * 7) % v_round_count;
+
+        SELECT id, question_text, options, points INTO v_question
+        FROM questions
+        WHERE round = v_part.current_round
+        ORDER BY id
         OFFSET v_picked_offset LIMIT 1;
     END;
 
