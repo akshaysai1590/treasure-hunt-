@@ -61,9 +61,32 @@
     @apply border-border;
   }
 
-  body {
+  html, body {
     @apply bg-background text-foreground font-sans;
     font-family: 'Inter', sans-serif;
+    /* Anti-Cheat: Disable text selection and mobile callouts (Google Lens/Search/Copy) */
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+  }
+
+  /* Allow typing in input and textarea fields */
+  input, textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default !important;
+  }
+
+  /* Prevent image long-press menus and drag-and-drop */
+  img {
+    pointer-events: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
   }
 
   h1, h2, h3, h4, h5, h6 {

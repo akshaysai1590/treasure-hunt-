@@ -28,10 +28,10 @@ BEGIN
     END IF;
 
     -- Time limits
-    IF v_part.current_round = 1 THEN v_q_limit := 15; v_max_q := 5;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 30; v_max_q := 5;
-    ELSIF v_part.current_round = 3 THEN v_q_limit := 45; v_max_q := 5;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 90; v_max_q := 5;
+    IF v_part.current_round = 1 THEN v_q_limit := 45; v_max_q := 5;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 90; v_max_q := 5;
+    ELSIF v_part.current_round = 3 THEN v_q_limit := 30; v_max_q := 5;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 120; v_max_q := 5;
     END IF;
 
     -- Fetch the correct question by reversing the deterministic selection

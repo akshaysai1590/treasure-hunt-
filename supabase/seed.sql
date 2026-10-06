@@ -5,7 +5,7 @@ INSERT INTO game_config (id, entry_password_hash, admin_password_hash)
 VALUES (
     1, 
     crypt('player', gen_salt('bf')), 
-    crypt('admin', gen_salt('bf'))
+    crypt('z0EZ3WbUVkPunBxnffseakGZ', gen_salt('bf'))
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -16,10 +16,10 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 3. Hints
 INSERT INTO hints (round, hint_text) VALUES
-(1, 'Hint for Round 2: Search near the big oak tree.'),
-(2, 'Hint for Round 3: Check the library entrance.'),
-(3, 'Hint for Round 4: Find the computer lab.'),
-(4, 'Final Hint: The treasure is in the cafeteria.')
+(1, 'I''m the Jacket holding a badge 11001101 in decimal. Inside me, find the machine that stops humans from thermal throttling.'),
+(2, 'Heyy I''m "h", but computer coded. That''s me. You are welcome, find the flat surface in me that holds every laptop.'),
+(3, '"I''m the only Windows you don''t need to install, and I never crash." HTTP says 404 means Not Found. But my junior 304: Found'),
+(4, 'I''m covered by a flat surface, which has No server, no login, no push notifications. Still I hold Information every single needs. I''m at the pattie of the burger you are in.')
 ON CONFLICT (round) DO NOTHING;
 
 -- 4. QR Codes (Passwords: 'r1', 'r2', 'r3', 'r4')

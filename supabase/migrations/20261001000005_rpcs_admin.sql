@@ -35,7 +35,7 @@ BEGIN
             'score', score,
             'completed', completed,
             'completion_time', completion_time
-        ) ORDER BY score DESC
+        ) ORDER BY score DESC, CASE WHEN completed THEN 0 ELSE 1 END, completion_time ASC NULLS LAST
     ), '[]'::jsonb)
     INTO v_participants
     FROM participants;

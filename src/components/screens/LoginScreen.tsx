@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import MatrixRain from "@/components/MatrixRain";
 import RulesPopup from "@/components/RulesPopup";
 
+import { requestFullscreen } from "@/lib/fullscreen";
+
 const LoginScreen = () => {
   const { registerParticipant, setGameState } = useGame();
   const { playSound } = useSound();
@@ -21,6 +23,8 @@ const LoginScreen = () => {
       playSound("wrong");
       return;
     }
+    // Enter fullscreen mode on user interaction
+    requestFullscreen();
     playSound("click");
     setLoading(true);
     // Passing password via actualName|_|gamePass hack to preserve useGame signature
@@ -37,6 +41,7 @@ const LoginScreen = () => {
   };
 
   const handleRulesComplete = () => {
+    requestFullscreen();
     setShowRules(false);
     setGameState("qr-scan");
   };
@@ -61,7 +66,7 @@ const LoginScreen = () => {
 
       <div className="relative z-10 w-full max-w-xs flex flex-col gap-4 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <Input
-          placeholder="Enter your username"
+          placeholder="Roll No or Team ID (e.g. T01)"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="bg-secondary/80 backdrop-blur-md border-border text-center text-foreground placeholder:text-muted-foreground focus:neon-border h-12"
@@ -71,7 +76,7 @@ const LoginScreen = () => {
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="password"
-            placeholder="Enter game password"
+            placeholder="Enter 4-digit PIN (e.g. 1001)"
             value={gamePass}
             onChange={(e) => setGamePass(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleStart()}

@@ -149,10 +149,10 @@ BEGIN
     IF NOT FOUND THEN RETURN jsonb_build_object('success', false, 'error', 'Invalid session'); END IF;
 
     IF v_part.stage = 'round' THEN
-        IF v_part.current_round = 1 THEN v_q_limit := 120;
-        ELSIF v_part.current_round = 2 THEN v_q_limit := 150;
-        ELSIF v_part.current_round = 3 THEN v_q_limit := 45;
-        ELSIF v_part.current_round = 4 THEN v_q_limit := 180;
+        IF v_part.current_round = 1 THEN v_q_limit := 45;
+        ELSIF v_part.current_round = 2 THEN v_q_limit := 90;
+        ELSIF v_part.current_round = 3 THEN v_q_limit := 30;
+        ELSIF v_part.current_round = 4 THEN v_q_limit := 120;
         END IF;
 
         IF v_part.question_served_at IS NOT NULL THEN
@@ -229,10 +229,10 @@ BEGIN
     IF NOT FOUND THEN RETURN jsonb_build_object('success', false, 'error', 'Invalid session'); END IF;
     IF v_part.stage != 'round' THEN RETURN jsonb_build_object('success', false, 'error', 'Not in round stage'); END IF;
 
-    IF v_part.current_round = 1 THEN v_q_limit := 120;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 150;
-    ELSIF v_part.current_round = 3 THEN v_q_limit := 45;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 180;
+    IF v_part.current_round = 1 THEN v_q_limit := 45;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 90;
+    ELSIF v_part.current_round = 3 THEN v_q_limit := 30;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 120;
     END IF;
 
     IF v_part.current_round = 1 THEN
@@ -323,10 +323,10 @@ BEGIN
         RETURN jsonb_build_object('success', true, 'duplicate', true);
     END IF;
 
-    IF v_part.current_round = 1 THEN v_q_limit := 120; v_max_q := 3;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 150; v_max_q := 3;
-    ELSIF v_part.current_round = 3 THEN v_q_limit := 45; v_max_q := 5;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 180; v_max_q := 2;
+    IF v_part.current_round = 1 THEN v_q_limit := 45; v_max_q := 3;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 90; v_max_q := 3;
+    ELSIF v_part.current_round = 3 THEN v_q_limit := 30; v_max_q := 5;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 120; v_max_q := 2;
     END IF;
 
     DECLARE
@@ -563,7 +563,7 @@ BEGIN
             'score', score,
             'completed', completed,
             'completion_time', completion_time
-        ) ORDER BY score DESC
+        ) ORDER BY score DESC, CASE WHEN completed THEN 0 ELSE 1 END, completion_time ASC NULLS LAST
     ), '[]'::jsonb)
     INTO v_participants
     FROM participants;
@@ -658,11 +658,11 @@ INSERT INTO game_config (id, entry_password_hash, admin_password_hash)
 VALUES (
     1, 
     crypt('player', gen_salt('bf')), 
-    crypt('admin', gen_salt('bf'))
+    crypt('z0EZ3WbUVkPunBxnffseakGZ', gen_salt('bf'))
 )
 ON CONFLICT (id) DO UPDATE 
 SET entry_password_hash = crypt('player', gen_salt('bf')),
-    admin_password_hash = crypt('admin', gen_salt('bf'));
+    admin_password_hash = crypt('z0EZ3WbUVkPunBxnffseakGZ', gen_salt('bf'));
 
 -- 2. Game State
 INSERT INTO game_state (id, is_paused, broadcast_message)
@@ -672,10 +672,10 @@ SET is_paused = false, broadcast_message = NULL;
 
 -- 3. Hints
 INSERT INTO hints (round, hint_text) VALUES
-(1, 'Hint for Round 2: Search near the big oak tree.'),
-(2, 'Hint for Round 3: Check the library entrance.'),
-(3, 'Hint for Round 4: Find the computer lab.'),
-(4, 'Final Hint: The treasure is in the cafeteria.')
+(1, 'I''m the Jacket holding a badge 11001101 in decimal. Inside me, find the machine that stops humans from thermal throttling.'),
+(2, 'Heyy I''m "h", but computer coded. That''s me. You are welcome, find the flat surface in me that holds every laptop.'),
+(3, '"I''m the only Windows you don''t need to install, and I never crash." HTTP says 404 means Not Found. But my junior 304: Found'),
+(4, 'I''m covered by a flat surface, which has No server, no login, no push notifications. Still I hold Information every single needs. I''m at the pattie of the burger you are in.')
 ON CONFLICT (round) DO UPDATE SET hint_text = EXCLUDED.hint_text;
 
 -- 4. QR Codes (Default keys: 'r1', 'r2', 'r3', 'r4')

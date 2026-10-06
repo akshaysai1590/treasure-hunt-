@@ -87,23 +87,30 @@ const RoundScreen = () => {
   // Track if this is first load (to use restoredRemainingTime)
   const isFirstLoadRef = useRef(true);
 
-  // Anti-Cheat: Focus Mode Detection
+  // Anti-Cheat: Focus & Overlay Detection (Catches tab switches, Circle to Search, Google Lens overlay)
   useEffect(() => {
-    let hideTime = 0;
-    const handleVisibilityChange = () => {
-      if (document.hidden && gameState === "round" && !isPaused) {
-        hideTime = Date.now();
+    let awayStartTime = 0;
+    let isAway = false;
+
+    const handleAway = () => {
+      if (!isAway && gameState === "round" && !isPaused) {
+        isAway = true;
+        awayStartTime = Date.now();
       }
-      else if (!document.hidden && gameState === "round" && !isPaused) {
-        const awayMs = Date.now() - hideTime;
-        if (awayMs > 3000) {
+    };
+
+    const handleReturn = () => {
+      if (isAway && gameState === "round" && !isPaused) {
+        isAway = false;
+        const awayMs = Date.now() - awayStartTime;
+        if (awayMs > 2500) {
           playSound("wrong");
           toast.error("⚠️ SYSTEM BREACH DETECTED: You left the secure terminal! Lifeline Lost.", {
             duration: 5000,
             style: { border: "2px solid red", color: "red", background: "#220000" }
           });
           const token = localStorage.getItem("session_token");
-          callRpc<LifelineResponse>("lose_lifeline", { p_session: token, p_reason: "tab_switch", p_idempotency_key: `tab_${Date.now()}` })
+          callRpc<LifelineResponse>("lose_lifeline", { p_session: token, p_reason: "tab_switch", p_idempotency_key: `away_${Date.now()}` })
             .then((res) => {
                if (res.stage === "eliminated") setGameState("eliminated");
                if (typeof res.lifelines === "number") setLifelines(res.lifelines);
@@ -115,8 +122,23 @@ const RoundScreen = () => {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        handleAway();
+      } else {
+        handleReturn();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleAway);
+    window.addEventListener("focus", handleReturn);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleAway);
+      window.removeEventListener("focus", handleReturn);
+    };
   }, [gameState, isPaused, playSound, setGameState, setLifelines]);
 
   useEffect(() => {

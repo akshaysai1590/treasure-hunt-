@@ -43,10 +43,10 @@ BEGIN
     IF v_part.stage != 'round' THEN RETURN jsonb_build_object('success', false, 'error', 'Not in round stage'); END IF;
 
     -- Time limits
-    IF v_part.current_round = 1 THEN v_q_limit := 15;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 30;
-    ELSIF v_part.current_round = 3 THEN v_q_limit := 45;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 90;
+    IF v_part.current_round = 1 THEN v_q_limit := 45;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 90;
+    ELSIF v_part.current_round = 3 THEN v_q_limit := 30;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 120;
     END IF;
 
     -- Pick a pseudorandom question from the current round, avoiding repeats

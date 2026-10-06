@@ -20,8 +20,14 @@ const QuestionCard = ({ question, options, onSelect, image, selectedIndex, selec
   return (
     <div className="glass-card rounded-lg p-6 neon-border animate-pop-in max-w-lg w-full mx-auto">
       {image && (
-        <div className="mb-4 rounded-md overflow-hidden border border-border">
-          <img src={image} alt="Question visual" className="w-full object-cover max-h-48" />
+        <div className="mb-4 rounded-md overflow-hidden border border-border select-none pointer-events-none">
+          <img
+            src={image}
+            alt="Question visual"
+            className="w-full object-cover max-h-48 select-none pointer-events-none"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
+          />
         </div>
       )}
       <h3 className="text-lg font-medium mb-5 text-foreground leading-relaxed">{question}</h3>

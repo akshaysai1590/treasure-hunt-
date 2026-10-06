@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { requestFullscreen } from "@/lib/fullscreen";
 
 interface RoundIntroProps {
     round: number;
@@ -18,7 +19,7 @@ const roundData = [
             { label: "Verbal Reasoning", points: 10 },
             { label: "Aptitude", points: 10 },
         ],
-        timeLimit: "2 minutes per question",
+        timeLimit: "45 seconds per question",
         format: "Multiple Choice (4 options)",
         negativePoints: "-5 pts",
         totalPoints: 30,
@@ -35,7 +36,7 @@ const roundData = [
             { label: "Tech Riddle", points: 15 },
             { label: "Tech Riddle", points: 15 },
         ],
-        timeLimit: "2–2.5 minutes per question",
+        timeLimit: "90 seconds (1.5 mins) per question",
         format: "Tech-based MCQs",
         negativePoints: "-7 pts",
         totalPoints: 45,
@@ -54,7 +55,7 @@ const roundData = [
             { label: "True / False", points: 8 },
             { label: "Output Prediction", points: 8 },
         ],
-        timeLimit: "45 seconds per question",
+        timeLimit: "30 seconds per question",
         format: "No backtracking allowed",
         negativePoints: "-4 pts",
         totalPoints: 40,
@@ -70,7 +71,7 @@ const roundData = [
             { label: "DSA Concept", points: 15 },
             { label: "DSA Concept", points: 20 },
         ],
-        timeLimit: "3 minutes per question",
+        timeLimit: "120 seconds (2 mins) per question",
         format: "This round determines your final ranking",
         negativePoints: "-7 to -10 pts",
         totalPoints: 35,
@@ -135,7 +136,10 @@ const RoundIntroPopup = ({ round, lifelines, onStart }: RoundIntroProps) => {
 
                 {/* Start button */}
                 <Button
-                    onClick={onStart}
+                    onClick={() => {
+                        requestFullscreen();
+                        onStart();
+                    }}
                     className="w-full h-11 font-display tracking-wider text-sm"
                 >
                     {data.buttonText} 🚀

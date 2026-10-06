@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { requestFullscreen } from "@/lib/fullscreen";
 
 interface RulesPopupProps {
     onComplete: () => void;
@@ -63,6 +64,7 @@ const RulesPopup = ({ onComplete }: RulesPopupProps) => {
     const isLast = step === slides.length - 1;
 
     const handleNext = () => {
+        requestFullscreen();
         if (isLast) {
             onComplete();
         } else {
