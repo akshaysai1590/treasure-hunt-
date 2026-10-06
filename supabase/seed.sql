@@ -33,81 +33,26 @@ ON CONFLICT (round) DO NOTHING;
 -- 5. Questions
 TRUNCATE TABLE questions RESTART IDENTITY CASCADE;
 
-INSERT INTO questions (round, pool_name, question_text, options, correct_index, points) VALUES
--- Round 1: Easy (10 pts)
-(1, 'logical', 'A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?', '["$0.10", "$0.05", "$1.00", "$0.50"]', 1, 10),
-(1, 'logical', 'Divide 30 by half and add 10. What do you get?', '["25", "70", "40", "15"]', 1, 10),
-(1, 'logical', 'T/F: A leap year happens exactly every 4 years without exception.', '["True", "False"]', 1, 10),
-(1, 'logical', 'Some months have 31 days, others have 30. How many have 28?', '["1", "12", "0", "6"]', 1, 10),
-(1, 'aptitude', 'A farmer has 17 sheep, and all but 9 die. How many are left?', '["17", "8", "9", "0"]', 2, 10),
-(1, 'logical', 'How many legs does a spider have?', '["6", "8", "10", "4"]', 1, 10),
-(1, 'aptitude', 'T/F: The Great Wall of China is the only man-made object visible from space with the naked eye.', '["True", "False"]', 1, 10),
-(1, 'aptitude', 'If you overtake the 2nd person in a race, what position are you in?', '["1st", "2nd", "3rd", "Last"]', 1, 10),
-(1, 'verbal', 'What is the antonym of ''Ameliorate''?', '["Worsen", "Improve", "Examine", "Create"]', 0, 10),
-(1, 'verbal', 'Which of these words is not a synonym for ''happy''?', '["Joyful", "Elated", "Melancholy", "Cheerful"]', 2, 10),
+INSERT INTO questions (id, round, pool_name, question_text, options, correct_index, points) VALUES
+-- Round 1: Logic & Aptitude (10 pts each)
+(1, 1, 'logical', 'Number Series: 2, 4, 8, 16, ___', '["24", "30", "32", "64"]'::jsonb, 2, 10),
+(2, 1, 'aptitude', 'A farmer has 17 sheep. All but 9 run away. How many are left?', '["8", "9", "17", "0"]'::jsonb, 1, 10),
+(3, 1, 'aptitude', 'What comes once in a minute, twice in a moment, but never in a thousand years', '["T", "M", "N", "E"]'::jsonb, 1, 10),
 
--- Round 2: Medium (20 pts)
-(2, 'tech', 'What is the primary function of a DNS?', '["Host websites", "Translate domain names to IP addresses", "Encrypt data", "Route packets physically"]', 1, 20),
-(2, 'tech', 'T/F: The IP address 256.0.0.1 is valid in IPv4.', '["True", "False"]', 1, 20),
-(2, 'logical', 'What is 20% of 30% of 100?', '["6", "5", "60", "0.6"]', 0, 20),
-(2, 'verbal', 'What is the antonym of ''Ephemeral''?', '["Temporary", "Permanent", "Ethereal", "Fleeting"]', 1, 20),
-(2, 'logical', 'A train is moving at 60 mph. How far does it travel in 45 minutes?', '["30 miles", "60 miles", "45 miles", "50 miles"]', 2, 20),
-(2, 'tech', 'T/F: A MAC address changes every time you connect to a new WiFi network.', '["True", "False"]', 1, 20),
-(2, 'verbal', 'Which word is spelled correctly?', '["Accomodate", "Accommodate", "Acomodate", "Acommodate"]', 1, 20),
-(2, 'logical', 'If 3 cats catch 3 mice in 3 minutes, how many cats catch 100 mice in 100 minutes?', '["100", "3", "300", "33"]', 1, 20),
-(2, 'tech', 'What does the ''S'' in HTTPS stand for?', '["Standard", "System", "Secure", "Socket"]', 2, 20),
-(2, 'logical', 'What is the next prime number after 7?', '["9", "11", "13", "8"]', 1, 20),
-(2, 'tech', 'Which of these is NOT a Linux distribution?', '["Ubuntu", "FreeBSD", "Fedora", "Debian"]', 1, 20),
-(2, 'verbal', 'T/F: ''Gullible'' is in the dictionary.', '["True", "False"]', 0, 20),
-(2, 'logical', 'If a triangle has a 90 degree angle, what is the sum of the other two angles?', '["90", "180", "45", "100"]', 0, 20),
-(2, 'tech', 'T/F: RAM is a type of non-volatile memory.', '["True", "False"]', 1, 20),
-(2, 'logical', 'If x + y = 10 and x - y = 4, what is the value of x * y?', '["24", "16", "21", "25"]', 2, 20),
+-- Round 2: Tech Riddles (15 pts each)
+(4, 2, 'tech', 'I have keys but no locks, space but no room, and you can enter but cannot go inside. What am I?', '["Keyboard", "Map", "Piano", "Door"]'::jsonb, 0, 15),
+(5, 2, 'tech', 'print(print("QR")) What is the second line of output? ', '["None", "Compilation error", "QR", "print(QR)"]'::jsonb, 0, 15),
+(6, 2, 'tech', 'I store data permanently.', '["RAM", "Cache", "Hard Drive", "CPU"]'::jsonb, 2, 15),
 
--- Round 3: Hard (30 pts)
-(3, 'fill', 'The _____ test evaluates a machine''s ability to exhibit intelligent behavior equivalent to a human.', '["Turing", "Einstein", "Asimov", "Babbage"]', 0, 30),
-(3, 'output', 'What does `bool("False")` evaluate to in Python?', '["True", "False", "None", "Error"]', 0, 30),
-(3, 'tf', 'T/F: In JavaScript, `typeof null` returns "object".', '["True", "False"]', 0, 30),
-(3, 'keyword', 'Which keyword is used to declare a function in Rust?', '["func", "def", "fn", "function"]', 2, 30),
-(3, 'tf', 'T/F: Floating point arithmetic is perfectly accurate in most programming languages.', '["True", "False"]', 1, 30),
-(3, 'output', 'In JavaScript, what does `0.1 + 0.2 === 0.3` evaluate to?', '["True", "False", "Undefined", "SyntaxError"]', 1, 30),
-(3, 'keyword', 'Which HTTP status code means "I''m a teapot"?', '["404", "500", "418", "403"]', 2, 30),
-(3, 'fill', 'The concept where a function calls itself is known as _____.', '["Iteration", "Recursion", "Delegation", "Inheritance"]', 1, 30),
-(3, 'tf', 'T/F: The primary colors of additive light are Red, Yellow, and Blue.', '["True", "False"]', 1, 30),
-(3, 'match', 'Which sort algorithm has an average time complexity of O(n log n) but worst-case of O(n^2)?', '["Merge Sort", "Quicksort", "Heap Sort", "Bubble Sort"]', 1, 30),
-(3, 'output', 'What is `[] == ![]` in JavaScript?', '["True", "False", "Error", "Undefined"]', 0, 30),
-(3, 'tf', 'T/F: An anagram of "Eleven plus two" is "Twelve plus one".', '["True", "False"]', 0, 30),
-(3, 'fill', 'In a Git repository, the `____` command applies the changes from one specific commit onto another branch.', '["merge", "rebase", "cherry-pick", "fetch"]', 2, 30),
-(3, 'match', 'If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops definitely Lazzies?', '["Yes", "No", "Maybe", "Impossible to tell"]', 0, 30),
-(3, 'tf', 'T/F: A byte has always been exactly 8 bits on all computer systems historically.', '["True", "False"]', 1, 30),
-(3, 'keyword', 'Which programming language is heavily associated with the concept of "monads"?', '["Java", "C++", "Haskell", "Python"]', 2, 30),
-(3, 'output', 'In Python, what is the output of `print(type(lambda: None))`?', '["<class ''lambda''>", "<class ''function''>", "<class ''NoneType''>", "Error"]', 1, 30),
-(3, 'match', 'Which design pattern ensures a class has only one instance?', '["Factory", "Observer", "Singleton", "Decorator"]', 2, 30),
-(3, 'fill', 'SQL injection can often be prevented by using _____ statements.', '["Prepared", "Compiled", "Dynamic", "Static"]', 0, 30),
-(3, 'output', 'What does `print(2 ** 3 ** 2)` evaluate to in Python?', '["64", "512", "72", "256"]', 1, 30),
+-- Round 3: Rapid Fire (8 pts each)
+(7, 3, 'fill', 'The protocol used to securely access websites is _____.', '["HTTP", "HTTPS", "TCP", "UDP"]'::jsonb, 1, 8),
+(8, 3, 'match', 'CSS -> ?', '["Structure", "Style", "Script", "Server"]'::jsonb, 1, 8),
+(9, 3, 'keyword', '"native" belongs to:', '["Java", "Python", "C++", "Ruby"]'::jsonb, 0, 8),
+(10, 3, 'tf', 'Java is a compiled language because the Java compiler translates source code directly into native machine code executable by the operating system.', '["True", "False"]'::jsonb, 1, 8),
+(11, 3, 'output', 'x = [1, 2, 3] 
 
--- Round 4: Brain Teasers (50 pts)
-(4, 'brainteaser', 'What disappears as soon as you say its name?', '["A ghost", "Silence", "A shadow", "A secret"]', 1, 50),
-(4, 'brainteaser', 'T/F: It is legal for a man in California to marry his widow''s sister.', '["True", "False"]', 1, 50),
-(4, 'brainteaser', 'A woman shoots her husband, holds him under water, and hangs him. Later they go to dinner. How?', '["She is a doctor", "It was a play", "She is a photographer", "He is a zombie"]', 2, 50),
-(4, 'brainteaser', 'What has words, but never speaks?', '["A parrot", "A book", "A radio", "A mime"]', 1, 50),
-(4, 'brainteaser', 'What belongs to you, but other people use it more than you do?', '["Your money", "Your house", "Your name", "Your car"]', 2, 50),
-(4, 'brainteaser', 'David''s parents have three sons: Snap, Crackle, and what''s the name of the third son?', '["Pop", "David", "John", "Crunch"]', 1, 50),
-(4, 'brainteaser', 'T/F: You can drop a raw egg onto a concrete floor without cracking it.', '["True", "False"]', 0, 50),
-(4, 'brainteaser', 'Forward I am heavy, but backward I am not. What am I?', '["A truck", "The word ''ton''", "A mirror", "Gravity"]', 1, 50),
-(4, 'brainteaser', 'If an electric train is moving north at 100mph and a wind is blowing west at 10mph, which way does the smoke blow?', '["North", "West", "South-West", "There is no smoke"]', 3, 50),
-(4, 'brainteaser', 'What has one eye, but can''t see?', '["A bat", "A hurricane", "A needle", "Both B and C"]', 3, 50),
-(4, 'brainteaser', 'You draw a line. Without touching it, how do you make the line longer?', '["Blow on it", "Draw a shorter line next to it", "Erase it", "Fold the paper"]', 1, 50),
-(4, 'brainteaser', 'What room do ghosts avoid?', '["The living room", "The bedroom", "The basement", "The attic"]', 0, 50),
-(4, 'brainteaser', 'T/F: A man who shaves 20 times a day still has a full beard.', '["True", "False"]', 0, 50),
-(4, 'brainteaser', 'The more of this there is, the less you see. What is it?', '["Light", "Fog", "Darkness", "Water"]', 2, 50),
-(4, 'brainteaser', 'I follow you all the time and copy your every move, but you can''t touch me. What am I?', '["A stalker", "A reflection", "Your shadow", "An echo"]', 2, 50),
-(4, 'brainteaser', 'What gets wetter as it dries?', '["A sponge", "A towel", "A cloud", "A mop"]', 1, 50),
-(4, 'brainteaser', 'T/F: If there are 3 apples and you take away 2, you have 1 apple.', '["True", "False"]', 1, 50),
-(4, 'brainteaser', 'I am an odd number. Take away a letter and I become even. What number am I?', '["Seven", "Nine", "Eleven", "One"]', 0, 50),
-(4, 'brainteaser', 'Which is heavier: a ton of bricks or a ton of feathers?', '["Bricks", "Feathers", "They weigh the same", "Depends on gravity"]', 2, 50),
-(4, 'brainteaser', 'If a rooster lays an egg on the exact peak of a barn roof, which side will the egg roll down?', '["Left", "Right", "Neither, roosters don''t lay eggs", "It will balance"]', 2, 50),
-(4, 'brainteaser', 'What month of the year has 28 days?', '["February", "None", "Leap year months", "All of them"]', 3, 50),
-(4, 'brainteaser', 'What has a head and a tail but no body?', '["A snake", "A coin", "A comet", "A worm"]', 1, 50),
-(4, 'brainteaser', 'T/F: In a footrace, if you pass the person in second place, you are now in first place.', '["True", "False"]', 1, 50),
-(4, 'brainteaser', 'Two fathers and two sons go fishing. They catch exactly 3 fish, and each gets 1. How?', '["One fish was pregnant", "They caught a whale", "Grandfather, father, and son", "Someone stole a fish"]', 2, 50),
-(4, 'brainteaser', 'A doctor gives you 3 pills and tells you to take one every half hour. How long will the pills last?', '["1.5 hours", "1 hour", "2 hours", "30 minutes"]', 1, 50);
+print(x[-1])', '["3", "-1", "index out of bound ", "None"]'::jsonb, 0, 8),
+
+-- Round 4: Final DSA Challenge (15 & 20 pts)
+(12, 4, 'dsa', 'Which data structure uses LIFO?', '["Queue", "Stack", "Tree", "Graph"]'::jsonb, 1, 15),
+(13, 4, 'dsa', 'i carry data  and i know where the next one is . I am neither the beginning nor the end , but i can be connected to both , What am I ?', '["Pointer", "Node", "Index", "Queue"]'::jsonb, 1, 20);
