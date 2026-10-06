@@ -57,8 +57,12 @@ BEGIN
         v_picked_offset INT;
     BEGIN
         SELECT count(*) INTO v_round_count FROM questions WHERE round = v_part.current_round;
+        IF v_round_count = 0 THEN
+            RETURN jsonb_build_object('success', false, 'error', 'No questions available for round ' || v_part.current_round);
+        END IF;
+
         v_seed_val := ('x' || substr(replace(v_part.id::text, '-', ''), 1, 14))::bit(56)::bigint;
-        v_picked_offset := (v_seed_val + v_part.q_index * 7) % v_round_count;
+        v_picked_offset := abs(v_seed_val + v_part.q_index * 7) % v_round_count;
 
         SELECT id, question_text, options, points INTO v_question
         FROM questions

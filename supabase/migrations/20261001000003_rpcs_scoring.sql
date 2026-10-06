@@ -27,26 +27,26 @@ BEGIN
         RETURN jsonb_build_object('success', true, 'duplicate', true);
     END IF;
 
-    -- Time limits
-    IF v_part.current_round = 1 THEN v_q_limit := 45; v_max_q := 5;
-    ELSIF v_part.current_round = 2 THEN v_q_limit := 90; v_max_q := 5;
+    -- Time limits & question limits: R1=45s/3q, R2=90s/3q, R3=30s/5q, R4=120s/2q
+    IF v_part.current_round = 1 THEN v_q_limit := 45; v_max_q := 3;
+    ELSIF v_part.current_round = 2 THEN v_q_limit := 90; v_max_q := 3;
     ELSIF v_part.current_round = 3 THEN v_q_limit := 30; v_max_q := 5;
-    ELSIF v_part.current_round = 4 THEN v_q_limit := 120; v_max_q := 5;
+    ELSIF v_part.current_round = 4 THEN v_q_limit := 120; v_max_q := 2;
+    ELSE v_q_limit := 60; v_max_q := 3;
     END IF;
 
-    -- Fetch the correct question by reversing the deterministic selection
-    -- Wait, we can't easily reverse the selection in SQL without rewriting get_question. 
-    -- Better: submit_answer receives the question ID! But the prompt says submit_answer(p_session UUID, p_selected_index INT, p_idempotency_key TEXT).
-    -- So we just recreate the deterministic selection here exactly as in get_question.
-    
     DECLARE
         v_round_count INT;
         v_seed_val BIGINT;
         v_picked_offset INT;
     BEGIN
         SELECT count(*) INTO v_round_count FROM questions WHERE round = v_part.current_round;
+        IF v_round_count = 0 THEN
+            RETURN jsonb_build_object('success', false, 'error', 'No questions available for round ' || v_part.current_round);
+        END IF;
+
         v_seed_val := ('x' || substr(replace(v_part.id::text, '-', ''), 1, 14))::bit(56)::bigint;
-        v_picked_offset := (v_seed_val + v_part.q_index * 7) % v_round_count;
+        v_picked_offset := abs(v_seed_val + v_part.q_index * 7) % v_round_count;
 
         SELECT * INTO v_question
         FROM questions
@@ -56,8 +56,13 @@ BEGIN
     END;
 
     -- Time validation (10s grace)
-    v_elapsed := EXTRACT(EPOCH FROM (now() - v_part.question_served_at))::INT;
-    IF v_elapsed > (v_q_limit + 10) THEN
+    IF v_part.question_served_at IS NOT NULL THEN
+        v_elapsed := EXTRACT(EPOCH FROM (now() - v_part.question_served_at))::INT;
+    ELSE
+        v_elapsed := 0;
+    END IF;
+
+    IF v_elapsed > (v_q_limit + 10) OR p_selected_index = -1 THEN
         v_is_correct := false;
         v_pts := 0;
     ELSE
@@ -115,9 +120,14 @@ BEGIN
         'correct', v_is_correct,
         'score', v_part.score,
         'lifelines', v_part.lives,
+        'lives', v_part.lives,
         'round_complete', v_round_complete,
         'finished', v_finished,
-        'stage', v_new_stage
+        'winner', v_finished,
+        'stage', v_new_stage,
+        'next_stage', v_new_stage,
+        'game_over', (v_new_stage = 'eliminated'),
+        'points_awarded', CASE WHEN v_is_correct THEN v_pts ELSE -v_penalty END
     );
 END;
 $$;

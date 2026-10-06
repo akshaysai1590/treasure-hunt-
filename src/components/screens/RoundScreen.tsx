@@ -31,15 +31,28 @@ interface SubmitResponse {
   correct?: boolean;
   score?: number;
   lifelines?: number;
+  lives?: number;
   round_complete?: boolean;
   finished?: boolean;
+  winner?: boolean;
   stage?: GameState;
+  next_stage?: GameState;
+  game_over?: boolean;
   error?: string;
 }
 
 interface StateResponse {
   success: boolean;
   hint?: string;
+  participant?: {
+    username?: string;
+    current_round?: number;
+    lifelines?: number;
+    gameState?: GameState;
+    score?: number;
+    q_index?: number;
+    completion_time?: number | null;
+  };
 }
 
 interface NextRoundResponse {
@@ -50,7 +63,9 @@ interface NextRoundResponse {
 interface LifelineResponse {
   success: boolean;
   lifelines?: number;
+  lives?: number;
   stage?: GameState;
+  next_stage?: GameState;
 }
 
 const RoundScreen = () => {
@@ -81,6 +96,7 @@ const RoundScreen = () => {
   // Skip intro if player is resuming mid-round (restoredQIndex > 0) or resuming from rehydration
   const [showIntro, setShowIntro] = useState(restoredQIndex === 0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'correct' | 'wrong' | null>(null);
   const isSubmittingRef = useRef(false);
@@ -159,6 +175,7 @@ const RoundScreen = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const token = localStorage.getItem("session_token");
       if (gameState === "hint") {
         const res = await callRpc<StateResponse>("get_state", { p_session: token });
@@ -169,6 +186,7 @@ const RoundScreen = () => {
         const res = await callRpc<QuestionResponse>("get_question", { p_session: token });
         if (res.success && res.question) {
           setCurrentQ(res.question);
+          setLoadError(null);
           // On first load after rehydration, use remaining time from server if available
           if (isFirstLoadRef.current && restoredRemainingTime !== null && restoredRemainingTime > 0) {
             setTimeLimit(restoredRemainingTime);
@@ -182,15 +200,29 @@ const RoundScreen = () => {
           isSubmittingRef.current = false;
           setSelectedIndex(null);
           setSelectedStatus(null);
+        } else {
+          // If get_question failed, verify with get_state in case user already completed the round
+          const stateRes = await callRpc<StateResponse>("get_state", { p_session: token });
+          if (stateRes.success && stateRes.participant) {
+            const serverStage = stateRes.participant.gameState;
+            if (serverStage && serverStage !== "round") {
+              setGameState(serverStage);
+              return;
+            }
+          }
+          setLoadError(res.error || "No questions available for this round or terminal sync error.");
+          setQuestionAnswered(false);
+          isSubmittingRef.current = false;
         }
       }
     } catch (e) {
       console.error(e);
+      setLoadError("Network error connecting to game server.");
       toast.error("Network error. Retrying...");
     } finally {
       setLoading(false);
     }
-  }, [gameState, restoredRemainingTime]);
+  }, [gameState, restoredRemainingTime, setGameState]);
 
   useEffect(() => {
     if (!showIntro) {
@@ -229,16 +261,22 @@ const RoundScreen = () => {
          else handleWrong();
 
          if (typeof res.score === "number") setScore(res.score);
-         if (typeof res.lifelines === "number") setLifelines(res.lifelines);
+         const remainingLives = typeof res.lifelines === "number" ? res.lifelines : res.lives;
+         if (typeof remainingLives === "number") setLifelines(remainingLives);
+
+         const nextStage = res.stage || res.next_stage;
+         const isWinner = Boolean(res.finished || res.winner || nextStage === "winner");
+         const isEliminated = Boolean(nextStage === "eliminated" || res.game_over || (typeof remainingLives === "number" && remainingLives <= 0));
+         const isRoundComplete = Boolean(res.round_complete || nextStage === "hint");
          
          setTimeout(() => {
-           if (res.stage === "eliminated") {
+           if (isEliminated) {
              setGameState("eliminated");
-           } else if (res.finished) {
+           } else if (isWinner) {
              setRoundComplete(currentRound);
              finishGame();
              setGameState("winner");
-           } else if (res.round_complete) {
+           } else if (isRoundComplete) {
              setRoundComplete(currentRound);
              setGameState("hint");
            } else {
@@ -246,6 +284,10 @@ const RoundScreen = () => {
              loadData();
            }
          }, 600);
+      } else {
+        toast.error(res.error || "Failed to submit answer. Please try again.");
+        setQuestionAnswered(false);
+        isSubmittingRef.current = false;
       }
     } catch {
       toast.error("Failed to submit. Check connection.");
@@ -303,8 +345,39 @@ const RoundScreen = () => {
     );
   }
 
+  if (loadError && !currentQ) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <GameHeader />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="glass-card max-w-sm w-full p-6 rounded-2xl border border-destructive/40 shadow-2xl animate-pop-in space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-full bg-destructive/10 flex items-center justify-center text-destructive text-2xl">
+              ⚠️
+            </div>
+            <h3 className="font-display text-base font-bold text-destructive">TERMINAL SYNC ERROR</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{loadError}</p>
+            <Button
+              onClick={() => {
+                setLoadError(null);
+                loadData();
+              }}
+              className="w-full h-11 font-display tracking-wider text-xs"
+            >
+              RETRY CONNECTION 🔄
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading || !currentQ) {
-    return <div className="flex flex-col min-h-screen items-center justify-center text-primary">Loading terminal...</div>;
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center gap-3 text-primary">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs tracking-widest animate-pulse">CONNECTING TO SECURE TERMINAL...</span>
+      </div>
+    );
   }
 
   return (

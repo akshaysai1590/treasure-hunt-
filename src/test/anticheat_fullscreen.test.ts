@@ -20,18 +20,18 @@ describe("Fullscreen & Anti-Cheat Utilities", () => {
   describe("isFullscreenSupported", () => {
     it("returns true when requestFullscreen exists on documentElement", () => {
       const mockElem = { requestFullscreen: vi.fn() };
-      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as any);
+      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as unknown as HTMLElement);
       expect(isFullscreenSupported()).toBe(true);
     });
 
     it("returns true when webkitRequestFullscreen exists (mobile Chrome/Safari)", () => {
       const mockElem = { webkitRequestFullscreen: vi.fn() };
-      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as any);
+      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as unknown as HTMLElement);
       expect(isFullscreenSupported()).toBe(true);
     });
 
     it("returns false when no fullscreen methods are supported", () => {
-      vi.spyOn(document, "documentElement", "get").mockReturnValue({} as any);
+      vi.spyOn(document, "documentElement", "get").mockReturnValue({} as unknown as HTMLElement);
       expect(isFullscreenSupported()).toBe(false);
     });
   });
@@ -65,7 +65,7 @@ describe("Fullscreen & Anti-Cheat Utilities", () => {
         configurable: true,
       });
       expect(isFullscreenActive()).toBe(true);
-      delete (document as any).webkitFullscreenElement;
+      delete (document as unknown as Record<string, unknown>).webkitFullscreenElement;
     });
   });
 
@@ -73,7 +73,7 @@ describe("Fullscreen & Anti-Cheat Utilities", () => {
     it("invokes requestFullscreen on documentElement when available", () => {
       const requestMock = vi.fn().mockReturnValue(Promise.resolve());
       const mockElem = { requestFullscreen: requestMock };
-      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as any);
+      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as unknown as HTMLElement);
 
       requestFullscreen();
       expect(requestMock).toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("Fullscreen & Anti-Cheat Utilities", () => {
     it("falls back to webkitRequestFullscreen on mobile WebKit", () => {
       const webkitMock = vi.fn();
       const mockElem = { webkitRequestFullscreen: webkitMock };
-      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as any);
+      vi.spyOn(document, "documentElement", "get").mockReturnValue(mockElem as unknown as HTMLElement);
 
       requestFullscreen();
       expect(webkitMock).toHaveBeenCalled();
